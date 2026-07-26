@@ -1,0 +1,8 @@
+node_modules/
+dist/
+*.bak
+*.bak_*
+__pycache__/
+*.pyc
+.env
+frontend/deploy.zip
