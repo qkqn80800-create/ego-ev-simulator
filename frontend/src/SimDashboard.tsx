@@ -1090,6 +1090,13 @@ function SettingsSidebar({ params, setParams, collapsed, setCollapsed, firstRec,
                 ))}
               </div>
             )}
+            <div style={{ marginTop: 10 }}>
+              <SLabel ch="부속 시설물 (원)"/>
+              <SNum value={params.cost_other_init ?? 0} onChange={v => setParams({ cost_other_init: v })} step={100000} min={0}/>
+              <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', marginTop: 4, lineHeight: 1.5 }}>
+                스탠드, 캐노피, 조명, 안전시설 등 부속 시설물 비용 (미입력 시 0)
+              </p>
+            </div>
             {params.payment_type === '일시불' && (
               <div style={{ marginTop: 10 }}>
                 <SLabel ch="할인율 (%)"/>

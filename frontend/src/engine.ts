@@ -3,9 +3,9 @@ import type { SimParams, SimResult, MonthRecord } from './types'
 export function runSimulation(p: SimParams): SimResult {
   const totalCount = p.charger_configs.reduce((s, c) => s + c.count, 0)
   const hasPerTypeCost = p.charger_configs.some(c => c.cost_unit !== undefined)
-  const totalInitCost = hasPerTypeCost
+  const totalInitCost = (hasPerTypeCost
     ? p.charger_configs.reduce((s, c) => s + ((c.cost_unit ?? p.cost_charger_unit) + (c.cost_install ?? 0)) * c.count, 0)
-    : (p.cost_charger_unit + p.cost_installation) * totalCount
+    : (p.cost_charger_unit + p.cost_installation) * totalCount) + (p.cost_other_init ?? 0)
 
   const isInstallment = p.payment_type === '할부'
   const instMonths = p.operation_months
