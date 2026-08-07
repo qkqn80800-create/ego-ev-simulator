@@ -63,7 +63,7 @@ export function runSimulation(p: SimParams): SimResult {
         }, 0)
       : p.monthly_ops
     const instThisMonth = isInstallment && m <= instMonths ? monthlyInstallment : 0
-    const totalCost = elecCost + perTypeOps + p.monthly_as + (p.monthly_comm ?? 5000) + (p.monthly_elec_safety ?? 0) + (p.monthly_tax_invoice ?? 0) + (p.monthly_insurance ?? 0) + p.monthly_other + instThisMonth
+    const totalCost = elecCost + perTypeOps + p.monthly_as + (p.monthly_comm ?? 5000) + (p.monthly_elec_safety ?? 0) + (p.monthly_insurance ?? 0) + p.monthly_other + instThisMonth
     const netProfit = myRevenue - totalCost
     cumulative += netProfit
 

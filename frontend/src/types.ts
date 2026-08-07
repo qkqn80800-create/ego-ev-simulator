@@ -35,7 +35,6 @@ export interface SimParams {
   monthly_as: number
   monthly_comm: number
   monthly_elec_safety: number     // 전기안전관리대행비 (월, 75kW 이상)
-  monthly_tax_invoice: number     // 세금계산서 발행 수수료 (월)
   monthly_insurance: number       // 충전시설 사고배상책임보험료 (월 환산)
   monthly_other: number
   pg_fee_pct: number
@@ -116,7 +115,6 @@ export const DEFAULT_PARAMS: SimParams = {
   monthly_as: 0,
   monthly_comm: 5_000,
   monthly_elec_safety: 0,
-  monthly_tax_invoice: 0,
   monthly_insurance: 0,
   monthly_other: 0,
   pg_fee_pct: 2,
