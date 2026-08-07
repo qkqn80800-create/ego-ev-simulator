@@ -350,7 +350,7 @@ function GlobalUpdateModal({ params, setParams, pwd, setPwd, pwdErr, setPwdErr, 
   const updDraft = (p: Partial<SimParams>) => setDraft(prev => ({ ...prev, ...p }))
 
   const merged: SimParams = { ...params, ...draft }
-  const sectionLabel = { charger: '① 충전기 구성', cost: '② 비용 설정', period: '③ 기간·성장률', elec: '④ 전기요금' }
+  const sectionLabel = { charger: '① 충전기 구성', cost: '② 비용 설정', period: '③ 기간·성장률', elec: '④ 고객 직접 납부' }
   const tabs = Object.keys(sectionLabel) as (keyof typeof sectionLabel)[]
 
   const handleSave = () => {
@@ -736,7 +736,7 @@ function SettingsSidebar({ params, setParams, collapsed, setCollapsed, firstRec,
             <SideMenuItem num="①" title="충전기 구성" desc={`${params.charger_configs.length}종 · ${params.charger_configs.reduce((s,c)=>s+c.count,0)}대`} onClick={() => setActiveModal('charger')} mobile={isMobile}/>
             <SideMenuItem num="②" title="비용 설정" desc="초기투자 · 운영비 · 수수료" onClick={() => setActiveModal('cost')} mobile={isMobile}/>
             <SideMenuItem num="③" title="기간 · 성장률" desc={`${params.operation_months}개월 · 성장률 ${params.ev_growth_rate}%`} onClick={() => setActiveModal('period')} mobile={isMobile}/>
-            <SideMenuItem num="④" title="전기요금 설정" desc={`${params.elec_type} · ${params.elec_kwh_rate}원/kWh`} onClick={() => setActiveModal('elec')} mobile={isMobile}/>
+            <SideMenuItem num="④" title="고객 직접 납부" desc={`전기요금 · 통신비`} onClick={() => setActiveModal('elec')} mobile={isMobile}/>
             <SideMenuItem num="⑤" title="충전량 참고" desc="차종별 일평균 추정 충전량" onClick={() => setActiveModal('kwh_ref')} mobile={isMobile}/>
             <div style={{ margin: '10px 14px 4px' }}>
               <button onClick={() => { setElecPwdVal(''); setElecPwdErr(false); setElecPwdOpen(false); setActiveModal('global_update') }} style={{
@@ -1107,17 +1107,10 @@ function SettingsSidebar({ params, setParams, collapsed, setCollapsed, firstRec,
           <div style={{ padding: '14px 14px 16px', borderRadius: 10, background: 'rgba(255,255,255,0.06)', marginBottom: 14 }}>
             <p style={{ color: 'rgba(255,255,255,0.40)', fontSize: 10, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 12 }}>월 운영비</p>
             {params.charger_configs.length === 1 ? (
-              <>
-                <div style={row2}>
-                  <div><SLabel ch="운영비 (원/월)"/><SNum value={params.charger_configs[0].monthly_ops_unit ?? params.monthly_ops} onChange={v => setParams({ charger_configs: params.charger_configs.map((c, i) => i === 0 ? { ...c, monthly_ops_unit: v } : c), monthly_ops: v })} step={10000}/></div>
-                  <div><SLabel ch="AS비 (원/월)"/><SNum value={params.monthly_as} onChange={v => setParams({ monthly_as: v })} step={10000}/></div>
-                </div>
-                <div style={{ marginTop: 8 }}>
-                  <SLabel ch="통신비 (원/월)"/>
-                  <SNum value={params.monthly_comm ?? 5000} onChange={v => setParams({ monthly_comm: v })} step={1000} min={0}/>
-                  <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', marginTop: 4 }}>SIM 통신 요금 등 고객 직접 부담 비용</p>
-                </div>
-              </>
+              <div style={row2}>
+                <div><SLabel ch="운영비 (원/월)"/><SNum value={params.charger_configs[0].monthly_ops_unit ?? params.monthly_ops} onChange={v => setParams({ charger_configs: params.charger_configs.map((c, i) => i === 0 ? { ...c, monthly_ops_unit: v } : c), monthly_ops: v })} step={10000}/></div>
+                <div><SLabel ch="AS비 (원/월)"/><SNum value={params.monthly_as} onChange={v => setParams({ monthly_as: v })} step={10000}/></div>
+              </div>
             ) : (
               <>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 10 }}>
@@ -1139,13 +1132,7 @@ function SettingsSidebar({ params, setParams, collapsed, setCollapsed, firstRec,
                     </div>
                   ))}
                 </div>
-                <div style={row2}>
-                  <div><SLabel ch="AS비 (원/월)"/><SNum value={params.monthly_as} onChange={v => setParams({ monthly_as: v })} step={10000}/></div>
-                  <div>
-                    <SLabel ch="통신비 (원/월)"/>
-                    <SNum value={params.monthly_comm ?? 5000} onChange={v => setParams({ monthly_comm: v })} step={1000} min={0}/>
-                  </div>
-                </div>
+                <div><SLabel ch="AS비 (원/월)"/><SNum value={params.monthly_as} onChange={v => setParams({ monthly_as: v })} step={10000}/></div>
               </>
             )}
           </div>
@@ -1240,12 +1227,12 @@ function SettingsSidebar({ params, setParams, collapsed, setCollapsed, firstRec,
         </Modal>
       )}
 
-      {/* ④ 전기요금 */}
+      {/* ④ 고객 직접 납부 */}
       {activeModal === 'elec' && (
-        <Modal title="④ 전기요금 설정" onClose={() => setActiveModal(null)} onReset={() => { const d = gd(); setParams({ elec_type: d.elec_type ?? DEFAULT_PARAMS.elec_type, elec_basic_rate: d.elec_basic_rate ?? DEFAULT_PARAMS.elec_basic_rate, elec_kwh_rate: d.elec_kwh_rate ?? DEFAULT_PARAMS.elec_kwh_rate, elec_climate_rate: d.elec_climate_rate ?? DEFAULT_PARAMS.elec_climate_rate, elec_fuel_rate: d.elec_fuel_rate ?? DEFAULT_PARAMS.elec_fuel_rate, elec_fund_pct: d.elec_fund_pct ?? DEFAULT_PARAMS.elec_fund_pct, elec_vat_pct: d.elec_vat_pct ?? DEFAULT_PARAMS.elec_vat_pct }) }}>
+        <Modal title="④ 고객 직접 납부" onClose={() => setActiveModal(null)} onReset={() => { const d = gd(); setParams({ elec_type: d.elec_type ?? DEFAULT_PARAMS.elec_type, elec_basic_rate: d.elec_basic_rate ?? DEFAULT_PARAMS.elec_basic_rate, elec_kwh_rate: d.elec_kwh_rate ?? DEFAULT_PARAMS.elec_kwh_rate, elec_climate_rate: d.elec_climate_rate ?? DEFAULT_PARAMS.elec_climate_rate, elec_fuel_rate: d.elec_fuel_rate ?? DEFAULT_PARAMS.elec_fuel_rate, elec_fund_pct: d.elec_fund_pct ?? DEFAULT_PARAMS.elec_fund_pct, elec_vat_pct: d.elec_vat_pct ?? DEFAULT_PARAMS.elec_vat_pct, monthly_comm: d.monthly_comm ?? DEFAULT_PARAMS.monthly_comm }) }}>
           <div style={{ padding: '10px 14px 11px', marginBottom: 14, borderRadius: 8, background: 'rgba(99,102,241,0.10)', border: '1px solid rgba(99,102,241,0.22)' }}>
             <p style={{ color: 'rgba(196,191,239,0.55)', fontSize: 10, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 4 }}>항목 안내</p>
-            <p style={{ color: 'rgba(255,255,255,0.75)', fontSize: 12, lineHeight: 1.65 }}>저압/고압 중 계약 전력 방식을 선택하고 기본요금·전력량 요금 단가를 확인합니다. 실제 계약 조건에 따라 수동으로 조정할 수 있습니다. 전력량 요금은 한전 계시별 평균값으로 적용되어 있으며, 실제 사용 시간대에 따라 달라질 수 있습니다.</p>
+            <p style={{ color: 'rgba(255,255,255,0.75)', fontSize: 12, lineHeight: 1.65 }}>전기요금·통신비 등 고객이 직접 납부하는 비용을 설정합니다. 운영사 비용(운영비·AS비 등)과 분리하여 관리합니다.</p>
           </div>
           {/* 상세 내역 카드 */}
           {firstRec && (
@@ -1292,13 +1279,19 @@ function SettingsSidebar({ params, setParams, collapsed, setCollapsed, firstRec,
               <div><SLabel ch="전력량요금 (원/kWh)"/><SReadonly value={params.elec_kwh_rate}/></div>
             </div>
           </div>
-          <div style={{ padding: '14px 14px 16px', borderRadius: 10, background: 'rgba(255,255,255,0.06)' }}>
+          <div style={{ padding: '14px 14px 16px', borderRadius: 10, background: 'rgba(255,255,255,0.06)', marginBottom: 14 }}>
             <p style={{ color: 'rgba(255,255,255,0.40)', fontSize: 10, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 12 }}>부가 요금</p>
             <div style={row2}>
               <div><SLabel ch="기후환경요금 (원/kWh)"/><SReadonly value={params.elec_climate_rate}/></div>
               <div><SLabel ch="연료비조정액 (원/kWh)"/><SReadonly value={params.elec_fuel_rate}/></div>
             </div>
             <div><SLabel ch="전력기금 (%)"/><SReadonly value={params.elec_fund_pct}/></div>
+          </div>
+          <div style={{ padding: '14px 14px 16px', borderRadius: 10, background: 'rgba(255,255,255,0.06)' }}>
+            <p style={{ color: 'rgba(255,255,255,0.40)', fontSize: 10, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 12 }}>통신비</p>
+            <SLabel ch="통신비 (원/월)"/>
+            <SNum value={params.monthly_comm ?? 5000} onChange={v => setParams({ monthly_comm: v })} step={1000} min={0}/>
+            <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', marginTop: 6 }}>SIM 통신 요금 등 고객이 직접 납부하는 월 통신 비용</p>
           </div>
         </Modal>
       )}
