@@ -901,6 +901,30 @@ function SettingsSidebar({ params, setParams, collapsed, setCollapsed, firstRec,
               <SNum value={params.monthly_insurance ?? 0} onChange={v => setParams({ monthly_insurance: v })} step={1000} min={0}/>
             </div>
           </div>
+
+          {/* 실시간 합계 */}
+          {(() => {
+            const initExtra = (params.cost_kepco_burden ?? 0) + (params.cost_safety_inspection ?? 0)
+            const monthlyExtra = (params.monthly_elec_safety ?? 0) + (params.monthly_insurance ?? 0)
+            if (initExtra === 0 && monthlyExtra === 0) return null
+            return (
+              <div style={{ marginTop: 14, padding: '12px 14px', borderRadius: 10, background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.28)' }}>
+                <p style={{ fontSize: 10, fontWeight: 700, color: 'rgba(167,139,250,0.90)', letterSpacing: '0.06em', marginBottom: 8 }}>시뮬레이션 반영 중</p>
+                {initExtra > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                    <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)' }}>초기 1회 추가 비용 합계</span>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.85)', fontVariantNumeric: 'tabular-nums' }}>{initExtra.toLocaleString()}원</span>
+                  </div>
+                )}
+                {monthlyExtra > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)' }}>월 추가 비용 합계</span>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(167,139,250,0.95)', fontVariantNumeric: 'tabular-nums' }}>{monthlyExtra.toLocaleString()}원/월</span>
+                  </div>
+                )}
+              </div>
+            )
+          })()}
         </Modal>
       )}
 
