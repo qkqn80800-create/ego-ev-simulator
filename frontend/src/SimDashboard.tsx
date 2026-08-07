@@ -1059,7 +1059,7 @@ function SettingsSidebar({ params, setParams, collapsed, setCollapsed, firstRec,
 
       {/* ② 비용 설정 */}
       {activeModal === 'cost' && (
-        <Modal title="② 비용 설정" onClose={() => setActiveModal(null)} onReset={() => { const d = gd(); setParams({ cost_charger_unit: d.cost_charger_unit ?? DEFAULT_PARAMS.cost_charger_unit, cost_installation: d.cost_installation ?? DEFAULT_PARAMS.cost_installation, cost_other_init: d.cost_other_init ?? DEFAULT_PARAMS.cost_other_init, monthly_ops: d.monthly_ops ?? DEFAULT_PARAMS.monthly_ops, monthly_as: d.monthly_as ?? DEFAULT_PARAMS.monthly_as, monthly_other: d.monthly_other ?? DEFAULT_PARAMS.monthly_other, pg_fee_pct: d.pg_fee_pct ?? DEFAULT_PARAMS.pg_fee_pct, revenue_share_pct: d.revenue_share_pct ?? DEFAULT_PARAMS.revenue_share_pct, discount_rate: d.discount_rate ?? DEFAULT_PARAMS.discount_rate, charger_configs: (d.charger_configs ?? params.charger_configs).map((c: ChargerConfig) => ({ ...c })) }) }}>
+        <Modal title="② 비용 설정" onClose={() => setActiveModal(null)} onReset={() => { const d = gd(); setParams({ cost_charger_unit: d.cost_charger_unit ?? DEFAULT_PARAMS.cost_charger_unit, cost_installation: d.cost_installation ?? DEFAULT_PARAMS.cost_installation, cost_other_init: d.cost_other_init ?? DEFAULT_PARAMS.cost_other_init, monthly_ops: d.monthly_ops ?? DEFAULT_PARAMS.monthly_ops, monthly_as: d.monthly_as ?? DEFAULT_PARAMS.monthly_as, monthly_comm: d.monthly_comm ?? DEFAULT_PARAMS.monthly_comm, monthly_other: d.monthly_other ?? DEFAULT_PARAMS.monthly_other, pg_fee_pct: d.pg_fee_pct ?? DEFAULT_PARAMS.pg_fee_pct, revenue_share_pct: d.revenue_share_pct ?? DEFAULT_PARAMS.revenue_share_pct, discount_rate: d.discount_rate ?? DEFAULT_PARAMS.discount_rate, charger_configs: (d.charger_configs ?? params.charger_configs).map((c: ChargerConfig) => ({ ...c })) }) }}>
           <div style={{ padding: '10px 14px 11px', marginBottom: 14, borderRadius: 8, background: 'rgba(99,102,241,0.10)', border: '1px solid rgba(99,102,241,0.22)' }}>
             <p style={{ color: 'rgba(196,191,239,0.55)', fontSize: 10, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 4 }}>항목 안내</p>
             <p style={{ color: 'rgba(255,255,255,0.75)', fontSize: 12, lineHeight: 1.65 }}>충전기 단가·설치비 등 초기 투자 비용과 월 운영비를 입력합니다.</p>
@@ -1107,10 +1107,17 @@ function SettingsSidebar({ params, setParams, collapsed, setCollapsed, firstRec,
           <div style={{ padding: '14px 14px 16px', borderRadius: 10, background: 'rgba(255,255,255,0.06)', marginBottom: 14 }}>
             <p style={{ color: 'rgba(255,255,255,0.40)', fontSize: 10, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 12 }}>월 운영비</p>
             {params.charger_configs.length === 1 ? (
-              <div style={row2}>
-                <div><SLabel ch="운영비 (원/월)"/><SNum value={params.charger_configs[0].monthly_ops_unit ?? params.monthly_ops} onChange={v => setParams({ charger_configs: params.charger_configs.map((c, i) => i === 0 ? { ...c, monthly_ops_unit: v } : c), monthly_ops: v })} step={10000}/></div>
-                <div><SLabel ch="AS비 (원/월)"/><SNum value={params.monthly_as} onChange={v => setParams({ monthly_as: v })} step={10000}/></div>
-              </div>
+              <>
+                <div style={row2}>
+                  <div><SLabel ch="운영비 (원/월)"/><SNum value={params.charger_configs[0].monthly_ops_unit ?? params.monthly_ops} onChange={v => setParams({ charger_configs: params.charger_configs.map((c, i) => i === 0 ? { ...c, monthly_ops_unit: v } : c), monthly_ops: v })} step={10000}/></div>
+                  <div><SLabel ch="AS비 (원/월)"/><SNum value={params.monthly_as} onChange={v => setParams({ monthly_as: v })} step={10000}/></div>
+                </div>
+                <div style={{ marginTop: 8 }}>
+                  <SLabel ch="통신비 (원/월)"/>
+                  <SNum value={params.monthly_comm ?? 5000} onChange={v => setParams({ monthly_comm: v })} step={1000} min={0}/>
+                  <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', marginTop: 4 }}>SIM 통신 요금 등 고객 직접 부담 비용</p>
+                </div>
+              </>
             ) : (
               <>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 10 }}>
@@ -1132,7 +1139,13 @@ function SettingsSidebar({ params, setParams, collapsed, setCollapsed, firstRec,
                     </div>
                   ))}
                 </div>
-                <div><SLabel ch="AS비 (원/월)"/><SNum value={params.monthly_as} onChange={v => setParams({ monthly_as: v })} step={10000}/></div>
+                <div style={row2}>
+                  <div><SLabel ch="AS비 (원/월)"/><SNum value={params.monthly_as} onChange={v => setParams({ monthly_as: v })} step={10000}/></div>
+                  <div>
+                    <SLabel ch="통신비 (원/월)"/>
+                    <SNum value={params.monthly_comm ?? 5000} onChange={v => setParams({ monthly_comm: v })} step={1000} min={0}/>
+                  </div>
+                </div>
               </>
             )}
           </div>

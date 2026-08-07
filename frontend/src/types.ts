@@ -31,6 +31,7 @@ export interface SimParams {
   cost_other_init: number
   monthly_ops: number
   monthly_as: number
+  monthly_comm: number
   monthly_other: number
   pg_fee_pct: number
   revenue_share_pct: number
@@ -106,6 +107,7 @@ export const DEFAULT_PARAMS: SimParams = {
   cost_other_init: 0,
   monthly_ops: 33_000,
   monthly_as: 0,
+  monthly_comm: 5_000,
   monthly_other: 0,
   pg_fee_pct: 2,
   revenue_share_pct: 90,
