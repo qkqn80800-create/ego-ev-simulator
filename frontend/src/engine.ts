@@ -3,12 +3,13 @@ import type { SimParams, SimResult, MonthRecord } from './types'
 export function runSimulation(p: SimParams): SimResult {
   const totalCount = p.charger_configs.reduce((s, c) => s + c.count, 0)
   const hasPerTypeCost = p.charger_configs.some(c => c.cost_unit !== undefined)
-  const totalInitCost = (hasPerTypeCost
+  // 충전기 구매·설치비: 할인율 적용 대상
+  const chargerCost = hasPerTypeCost
     ? p.charger_configs.reduce((s, c) => s + ((c.cost_unit ?? p.cost_charger_unit) + (c.cost_install ?? 0)) * c.count, 0)
-    : (p.cost_charger_unit + p.cost_installation) * totalCount)
-    + (p.cost_other_init ?? 0)
-    + (p.cost_kepco_burden ?? 0)
-    + (p.cost_safety_inspection ?? 0)
+    : (p.cost_charger_unit + p.cost_installation) * totalCount
+  // 외부 고정 비용: 할인율 미적용 (한전부담금, 사용전검사비, 부속시설물)
+  const fixedExtraInit = (p.cost_other_init ?? 0) + (p.cost_kepco_burden ?? 0) + (p.cost_safety_inspection ?? 0)
+  const totalInitCost = chargerCost + fixedExtraInit
 
   const isInstallment = p.payment_type === '할부'
   const instMonths = p.operation_months
@@ -17,9 +18,10 @@ export function runSimulation(p: SimParams): SimResult {
     : 0
 
   const managerDiscount = p.manager_name ? (p.manager_discount ?? 0) : 0
+  // 할인율은 충전기 비용에만 적용, 외부 고정비는 전액 반영
   const discountedInitCost = isInstallment
     ? totalInitCost
-    : totalInitCost * (1 - (p.discount_rate ?? 0) / 100) - managerDiscount
+    : chargerCost * (1 - (p.discount_rate ?? 0) / 100) - managerDiscount + fixedExtraInit
 
   const records: MonthRecord[] = []
   let cumulative = isInstallment ? 0 : -discountedInitCost
