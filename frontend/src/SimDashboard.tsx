@@ -827,6 +827,7 @@ function SettingsSidebar({ params, setParams, collapsed, setCollapsed, firstRec,
             cost_safety_inspection: d.cost_safety_inspection ?? 0,
             monthly_elec_safety: d.monthly_elec_safety ?? 0,
             monthly_tax_invoice: d.monthly_tax_invoice ?? 0,
+            monthly_insurance: d.monthly_insurance ?? 0,
           })
         }}>
           {/* 안내 배너 */}
@@ -888,7 +889,7 @@ function SettingsSidebar({ params, setParams, collapsed, setCollapsed, firstRec,
             </div>
 
             {/* 세금계산서 발행 수수료 */}
-            <div style={{ padding: '12px 12px 14px', borderRadius: 8, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+            <div style={{ marginBottom: 14, padding: '12px 12px 14px', borderRadius: 8, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
                 <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.75)' }}>세금계산서 발행 수수료</span>
                 <span style={{ fontSize: 10, color: 'rgba(167,139,250,0.80)', background: 'rgba(167,139,250,0.10)', borderRadius: 4, padding: '1px 6px' }}>해당 시</span>
@@ -898,6 +899,19 @@ function SettingsSidebar({ params, setParams, collapsed, setCollapsed, firstRec,
               </p>
               <SLabel ch="세금계산서 발행 수수료 (원/월)"/>
               <SNum value={params.monthly_tax_invoice ?? 0} onChange={v => setParams({ monthly_tax_invoice: v })} step={1000} min={0}/>
+            </div>
+
+            {/* 충전시설 사고배상책임보험 */}
+            <div style={{ padding: '12px 12px 14px', borderRadius: 8, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.75)' }}>충전시설 사고배상책임보험</span>
+                <span style={{ fontSize: 10, color: 'rgba(52,211,153,0.80)', background: 'rgba(52,211,153,0.10)', borderRadius: 4, padding: '1px 6px' }}>월 환산 입력</span>
+              </div>
+              <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.40)', lineHeight: 1.6, marginBottom: 8 }}>
+                EV 충전시설 화재·감전 등 사고 발생 시 제3자 손해를 보상하는 배상책임보험. 연간 보험료를 12로 나눈 월 환산액을 입력하세요.
+              </p>
+              <SLabel ch="보험료 (원/월)"/>
+              <SNum value={params.monthly_insurance ?? 0} onChange={v => setParams({ monthly_insurance: v })} step={1000} min={0}/>
             </div>
           </div>
         </Modal>
