@@ -838,6 +838,49 @@ function SettingsSidebar({ params, setParams, collapsed, setCollapsed, firstRec,
             </p>
           </div>
 
+          {/* 용량 기준 자동 추산 */}
+          {(() => {
+            const totalKw = params.charger_configs.reduce((s, c) => s + c.kw * c.count, 0)
+            const isLow = params.elec_type === '저압'
+            // 한전 시설부담금: 저압 신청 시 계약용량 기준 추산 (업계 평균)
+            const estKepco = isLow ? Math.max(500_000, Math.round(totalKw * 12_000 / 10_000) * 10_000) : 0
+            // 사용전검사·안전관리자·감리비: 75kW 이상 시 (초기 1회)
+            const estSafety = totalKw >= 75 ? Math.round((1_000_000 + totalKw * 8_000) / 10_000) * 10_000 : 0
+            // 전기안전관리대행비: 75kW 이상 시 (월)
+            const estElecSafety = totalKw >= 75 ? (totalKw >= 200 ? 200_000 : totalKw >= 100 ? 150_000 : 100_000) : 0
+            return (
+              <div style={{ marginBottom: 14, padding: '11px 14px 13px', borderRadius: 8, background: 'rgba(52,211,153,0.07)', border: '1px solid rgba(52,211,153,0.22)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
+                  <div style={{ flex: 1 }}>
+                    <p style={{ fontSize: 11, fontWeight: 700, color: 'rgba(52,211,153,0.90)', marginBottom: 5 }}>
+                      총 계약 용량 {totalKw}kW · {isLow ? '저압' : '고압'} 기준 추산
+                    </p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                      {estKepco > 0 && <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.50)' }}>한전 시설부담금: {estKepco.toLocaleString()}원</p>}
+                      {estSafety > 0 && <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.50)' }}>사용전검사·안전관리·감리: {estSafety.toLocaleString()}원</p>}
+                      {estElecSafety > 0 && <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.50)' }}>전기안전관리대행비: {estElecSafety.toLocaleString()}원/월</p>}
+                      {estKepco === 0 && estSafety === 0 && estElecSafety === 0 && (
+                        <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)' }}>{totalKw}kW {isLow ? '' : '(고압)'}· 추산 항목 없음 (75kW 미만·고압)</p>
+                      )}
+                    </div>
+                  </div>
+                  {(estKepco > 0 || estSafety > 0 || estElecSafety > 0) && (
+                    <button onClick={() => setParams({
+                      cost_kepco_burden: estKepco,
+                      cost_safety_inspection: estSafety,
+                      monthly_elec_safety: estElecSafety,
+                    })} style={{
+                      padding: '7px 12px', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                      background: 'rgba(52,211,153,0.18)', border: '1px solid rgba(52,211,153,0.35)',
+                      color: 'rgba(52,211,153,0.90)', whiteSpace: 'nowrap', flexShrink: 0,
+                    }}>자동 입력</button>
+                  )}
+                </div>
+                <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.25)', marginTop: 6 }}>업계 평균 기준 추산값. 실제 계약 조건·지역에 따라 다를 수 있습니다. 직접 수정 가능합니다.</p>
+              </div>
+            )
+          })()}
+
           {/* ── 초기 1회 발생 비용 ── */}
           <div style={{ padding: '14px 14px 16px', borderRadius: 10, background: 'rgba(255,255,255,0.06)', marginBottom: 14 }}>
             <p style={{ color: 'rgba(255,255,255,0.40)', fontSize: 10, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 4 }}>초기 1회 발생 비용</p>
