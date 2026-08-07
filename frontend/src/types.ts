@@ -29,9 +29,13 @@ export interface SimParams {
   cost_charger_unit: number
   cost_installation: number
   cost_other_init: number
+  cost_kepco_burden: number       // 한전 시설부담금 (초기 1회)
+  cost_safety_inspection: number  // 사용전검사·안전관리자·감리비 (초기 1회, 75kW 이상)
   monthly_ops: number
   monthly_as: number
   monthly_comm: number
+  monthly_elec_safety: number     // 전기안전관리대행비 (월, 75kW 이상)
+  monthly_tax_invoice: number     // 세금계산서 발행 수수료 (월)
   monthly_other: number
   pg_fee_pct: number
   revenue_share_pct: number
@@ -105,9 +109,13 @@ export const DEFAULT_PARAMS: SimParams = {
   cost_charger_unit: 1_100_000,
   cost_installation: 3_300_000,
   cost_other_init: 0,
+  cost_kepco_burden: 0,
+  cost_safety_inspection: 0,
   monthly_ops: 33_000,
   monthly_as: 0,
   monthly_comm: 5_000,
+  monthly_elec_safety: 0,
+  monthly_tax_invoice: 0,
   monthly_other: 0,
   pg_fee_pct: 2,
   revenue_share_pct: 90,

@@ -625,7 +625,7 @@ function SettingsSidebar({ params, setParams, collapsed, setCollapsed, firstRec,
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const [numTypes, setNumTypes] = useState(params.charger_configs.length)
-  const [activeModal, setActiveModal] = useState<'charger' | 'cost' | 'period' | 'elec' | 'installment' | 'kwh_ref' | 'global_update' | null>(null)
+  const [activeModal, setActiveModal] = useState<'charger' | 'cost' | 'period' | 'elec' | 'installment' | 'extra_costs' | 'kwh_ref' | 'global_update' | null>(null)
   const [vehicleKwhOpen, setVehicleKwhOpen] = useState<number | null>(null)
   const [vehicleKwhModal, setVehicleKwhModal] = useState<number | null>(null)
   const [elecPwdOpen, setElecPwdOpen] = useState(false)
@@ -737,7 +737,8 @@ function SettingsSidebar({ params, setParams, collapsed, setCollapsed, firstRec,
             <SideMenuItem num="②" title="비용 설정" desc="초기투자 · 운영비 · 수수료" onClick={() => setActiveModal('cost')} mobile={isMobile}/>
             <SideMenuItem num="③" title="기간 · 성장률" desc={`${params.operation_months}개월 · 성장률 ${params.ev_growth_rate}%`} onClick={() => setActiveModal('period')} mobile={isMobile}/>
             <SideMenuItem num="④" title="고객 직접 납부" desc={`전기요금 · 통신비`} onClick={() => setActiveModal('elec')} mobile={isMobile}/>
-            <SideMenuItem num="⑤" title="충전량 참고" desc="차종별 일평균 추정 충전량" onClick={() => setActiveModal('kwh_ref')} mobile={isMobile}/>
+            <SideMenuItem num="⑤" title="추가 발생 비용" desc="한전부담금 · 안전관리 · 감리" onClick={() => setActiveModal('extra_costs')} mobile={isMobile}/>
+            <SideMenuItem num="⑥" title="충전량 참고" desc="차종별 일평균 추정 충전량" onClick={() => setActiveModal('kwh_ref')} mobile={isMobile}/>
             <div style={{ margin: '10px 14px 4px' }}>
               <button onClick={() => { setElecPwdVal(''); setElecPwdErr(false); setElecPwdOpen(false); setActiveModal('global_update') }} style={{
                 width: '100%', padding: '9px 0', borderRadius: 8, fontSize: 11, fontWeight: 700, cursor: 'pointer',
@@ -817,9 +818,94 @@ function SettingsSidebar({ params, setParams, collapsed, setCollapsed, firstRec,
         )
       })()}
 
-      {/* ⑤ 충전량 참고 */}
+      {/* ⑤ 추가 발생 비용 */}
+      {activeModal === 'extra_costs' && (
+        <Modal title="⑤ 추가 발생 비용" onClose={() => setActiveModal(null)} onReset={() => {
+          const d = gd()
+          setParams({
+            cost_kepco_burden: d.cost_kepco_burden ?? 0,
+            cost_safety_inspection: d.cost_safety_inspection ?? 0,
+            monthly_elec_safety: d.monthly_elec_safety ?? 0,
+            monthly_tax_invoice: d.monthly_tax_invoice ?? 0,
+          })
+        }}>
+          {/* 안내 배너 */}
+          <div style={{ padding: '10px 14px 11px', marginBottom: 14, borderRadius: 8, background: 'rgba(99,102,241,0.10)', border: '1px solid rgba(99,102,241,0.22)' }}>
+            <p style={{ color: 'rgba(196,191,239,0.55)', fontSize: 10, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 4 }}>항목 안내</p>
+            <p style={{ color: 'rgba(255,255,255,0.75)', fontSize: 12, lineHeight: 1.65 }}>
+              충전기 설치 외에 계약 조건·용량에 따라 추가로 발생하는 비용입니다. 입력한 값은 시뮬레이션에 자동 반영됩니다.
+            </p>
+          </div>
+
+          {/* ── 초기 1회 발생 비용 ── */}
+          <div style={{ padding: '14px 14px 16px', borderRadius: 10, background: 'rgba(255,255,255,0.06)', marginBottom: 14 }}>
+            <p style={{ color: 'rgba(255,255,255,0.40)', fontSize: 10, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 4 }}>초기 1회 발생 비용</p>
+            <p style={{ color: 'rgba(255,255,255,0.30)', fontSize: 10, marginBottom: 14 }}>아래 비용은 초기 투자비에 합산됩니다.</p>
+
+            {/* 한전 시설부담금 */}
+            <div style={{ marginBottom: 14, padding: '12px 12px 14px', borderRadius: 8, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.75)' }}>한전 시설부담금</span>
+                <span style={{ fontSize: 10, color: 'rgba(255,200,100,0.70)', background: 'rgba(255,200,100,0.10)', borderRadius: 4, padding: '1px 6px' }}>저압 신청 시</span>
+              </div>
+              <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.40)', lineHeight: 1.6, marginBottom: 8 }}>
+                한전에 저압 전기공급 신청 시 발생하는 비용. 계약 용량·지역에 따라 상이 (통상 50~200만원 내외). 세금계산서 발행.
+              </p>
+              <SLabel ch="한전 시설부담금 (원)"/>
+              <SNum value={params.cost_kepco_burden ?? 0} onChange={v => setParams({ cost_kepco_burden: v })} step={100000} min={0}/>
+            </div>
+
+            {/* 사용전검사 / 안전관리자 / 감리 */}
+            <div style={{ padding: '12px 12px 14px', borderRadius: 8, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.75)' }}>사용전검사 · 안전관리자 · 감리비</span>
+                <span style={{ fontSize: 10, color: 'rgba(248,113,113,0.80)', background: 'rgba(248,113,113,0.10)', borderRadius: 4, padding: '1px 6px' }}>75kW 이상</span>
+              </div>
+              <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.40)', lineHeight: 1.6, marginBottom: 8 }}>
+                총 설치 용량 75kW 이상 시 한전 사용전검사 필수. 안전관리자 선임 대행 및 감리비 포함. 이에스앤에이치(ES&amp;H) 등 전기안전관리 대행업체를 통해 처리. 세금계산서 발행.
+              </p>
+              <SLabel ch="사용전검사·안전관리자·감리비 합계 (원)"/>
+              <SNum value={params.cost_safety_inspection ?? 0} onChange={v => setParams({ cost_safety_inspection: v })} step={100000} min={0}/>
+            </div>
+          </div>
+
+          {/* ── 월 발생 비용 ── */}
+          <div style={{ padding: '14px 14px 16px', borderRadius: 10, background: 'rgba(255,255,255,0.06)' }}>
+            <p style={{ color: 'rgba(255,255,255,0.40)', fontSize: 10, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 4 }}>월 발생 비용</p>
+            <p style={{ color: 'rgba(255,255,255,0.30)', fontSize: 10, marginBottom: 14 }}>아래 비용은 월 총비용에 합산됩니다.</p>
+
+            {/* 전기안전관리대행비 */}
+            <div style={{ marginBottom: 14, padding: '12px 12px 14px', borderRadius: 8, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.75)' }}>전기안전관리대행비</span>
+                <span style={{ fontSize: 10, color: 'rgba(248,113,113,0.80)', background: 'rgba(248,113,113,0.10)', borderRadius: 4, padding: '1px 6px' }}>75kW 이상</span>
+              </div>
+              <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.40)', lineHeight: 1.6, marginBottom: 8 }}>
+                이에스앤에이치(ES&amp;H) 등 전기안전관리 대행업체에 매월 납부. 총 설치 용량 75kW 이상 의무 대상. 고객 직접 납부. 세금계산서 발행.
+              </p>
+              <SLabel ch="전기안전관리대행비 (원/월)"/>
+              <SNum value={params.monthly_elec_safety ?? 0} onChange={v => setParams({ monthly_elec_safety: v })} step={10000} min={0}/>
+            </div>
+
+            {/* 세금계산서 발행 수수료 */}
+            <div style={{ padding: '12px 12px 14px', borderRadius: 8, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.75)' }}>세금계산서 발행 수수료</span>
+                <span style={{ fontSize: 10, color: 'rgba(167,139,250,0.80)', background: 'rgba(167,139,250,0.10)', borderRadius: 4, padding: '1px 6px' }}>해당 시</span>
+              </div>
+              <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.40)', lineHeight: 1.6, marginBottom: 8 }}>
+                전기요금·안전관리비 등 세금계산서 발행이 필요한 경우 발생하는 월 수수료. 계약 조건에 따라 상이.
+              </p>
+              <SLabel ch="세금계산서 발행 수수료 (원/월)"/>
+              <SNum value={params.monthly_tax_invoice ?? 0} onChange={v => setParams({ monthly_tax_invoice: v })} step={1000} min={0}/>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* ⑥ 충전량 참고 */}
       {activeModal === 'kwh_ref' && (
-        <Modal title="⑤ 충전량 참고 (2025년 기준)" onClose={() => setActiveModal(null)} width={760}>
+        <Modal title="⑥ 충전량 참고 (2025년 기준)" onClose={() => setActiveModal(null)} width={760}>
           {/* 메인 테이블 */}
           <div style={{ borderRadius: 10, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.12)', marginBottom: 14 }}>
             <div style={{ padding: '10px 14px', background: 'rgba(255,255,255,0.06)', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>

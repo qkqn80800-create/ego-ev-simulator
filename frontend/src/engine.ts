@@ -5,7 +5,10 @@ export function runSimulation(p: SimParams): SimResult {
   const hasPerTypeCost = p.charger_configs.some(c => c.cost_unit !== undefined)
   const totalInitCost = (hasPerTypeCost
     ? p.charger_configs.reduce((s, c) => s + ((c.cost_unit ?? p.cost_charger_unit) + (c.cost_install ?? 0)) * c.count, 0)
-    : (p.cost_charger_unit + p.cost_installation) * totalCount) + (p.cost_other_init ?? 0)
+    : (p.cost_charger_unit + p.cost_installation) * totalCount)
+    + (p.cost_other_init ?? 0)
+    + (p.cost_kepco_burden ?? 0)
+    + (p.cost_safety_inspection ?? 0)
 
   const isInstallment = p.payment_type === '할부'
   const instMonths = p.operation_months
@@ -60,7 +63,7 @@ export function runSimulation(p: SimParams): SimResult {
         }, 0)
       : p.monthly_ops
     const instThisMonth = isInstallment && m <= instMonths ? monthlyInstallment : 0
-    const totalCost = elecCost + perTypeOps + p.monthly_as + (p.monthly_comm ?? 5000) + p.monthly_other + instThisMonth
+    const totalCost = elecCost + perTypeOps + p.monthly_as + (p.monthly_comm ?? 5000) + (p.monthly_elec_safety ?? 0) + (p.monthly_tax_invoice ?? 0) + p.monthly_other + instThisMonth
     const netProfit = myRevenue - totalCost
     cumulative += netProfit
 
