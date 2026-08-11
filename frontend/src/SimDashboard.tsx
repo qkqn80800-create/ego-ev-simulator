@@ -657,9 +657,9 @@ function SettingsSidebar({ params, setParams, collapsed, setCollapsed, firstRec,
   const estSupervision = totalKw < 75 ? 0
     : totalKw <= 100 ? 1_500_000 : totalKw <= 500 ? 3_000_000 : 5_000_000
   const estSafety = totalKw < 75 ? 0 : estSafetyInspection + estSupervision
-  // 전기안전관리대행비(월, 75kW 이상 대상): 용량 구간별 권장 예산
-  const estElecSafety = totalKw < 75 ? 0
-    : totalKw <= 100 ? 120_000 : totalKw <= 300 ? 150_000 : totalKw <= 500 ? 180_000 : totalKw <= 1000 ? 250_000 : 300_000
+  // 전기안전점검 수수료 (한국전기안전공사 2026년도, VAT별도 × 1.1, 연간 → 월 환산)
+  const estElecSafetyYearly = Math.round((44_000 + totalKw * 1_059) * 1.1)
+  const estElecSafety = totalKw < 75 ? 0 : Math.round(estElecSafetyYearly / 12)
   // 충전시설 사고배상책임보험(월): 총 충전기 대수 구간별
   const totalCount = params.charger_configs.reduce((s, c) => s + c.count, 0)
   // 연간 보험료 기준 (월 단가 × 12)
@@ -912,7 +912,7 @@ function SettingsSidebar({ params, setParams, collapsed, setCollapsed, firstRec,
                 </p>
               )}
               {estSafety > 0 && <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.50)' }}>사용전검사·안전관리·감리: {estSafety.toLocaleString()}원 <span style={{ color: 'rgba(52,211,153,0.60)' }}>(부가세 포함)</span></p>}
-              {estElecSafety > 0 && <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.50)' }}>전기안전관리대행비: {estElecSafety.toLocaleString()}원/월 <span style={{ color: 'rgba(52,211,153,0.60)' }}>(부가세 포함)</span></p>}
+              {estElecSafetyYearly > 0 && totalKw >= 75 && <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.50)' }}>전기안전점검: {estElecSafetyYearly.toLocaleString()}원/년 (월 {Math.round(estElecSafetyYearly/12).toLocaleString()}원) <span style={{ color: 'rgba(52,211,153,0.60)' }}>(부가세 포함)</span></p>}
               {insuranceNote
                 ? <p style={{ fontSize: 10, color: 'rgba(248,113,113,0.70)' }}>보험료: {insuranceNote}</p>
                 : <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.50)' }}>충전시설 배상책임보험: {estInsurance.toLocaleString()}원/년 ({totalCount}대 기준) <span style={{ color: 'rgba(255,255,255,0.30)' }}>(부가세 면세)</span></p>
@@ -987,12 +987,10 @@ function SettingsSidebar({ params, setParams, collapsed, setCollapsed, firstRec,
                 <span style={{ fontSize: 10, color: 'rgba(248,113,113,0.80)', background: 'rgba(248,113,113,0.10)', borderRadius: 4, padding: '1px 6px' }}>75kW 이상</span>
               </div>
               <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.40)', lineHeight: 1.7, marginBottom: 8 }}>
-                총 설치 용량 75kW 이상 시 전기안전관리대행업체 의무 계약. 이에스앤에이치(ES&amp;H) 등에 매월 직접 납부. 세금계산서 발행. <strong style={{ color: 'rgba(52,211,153,0.75)' }}>부가세(10%) 포함 금액입니다.</strong><br/>
-                <span style={{ color: 'rgba(255,255,255,0.55)' }}>계산 방법 (용량 구간별 월 대행 요금, 부가세 포함):</span><br/>
-                · 75~100kW: <strong style={{ color: 'rgba(255,255,255,0.60)' }}>월 120,000원</strong><br/>
-                · 100~300kW: <strong style={{ color: 'rgba(255,255,255,0.60)' }}>월 150,000원</strong><br/>
-                · 300~500kW: <strong style={{ color: 'rgba(255,255,255,0.60)' }}>월 180,000원</strong><br/>
-                · 500kW 초과: 월 250,000원~ (업체별 협의)
+                전기안전관리법 제13조에 따른 의무 안전점검. 한국전기안전공사에 연 1회 납부. 세금계산서 발행. <strong style={{ color: 'rgba(52,211,153,0.75)' }}>부가세(10%) 포함 금액입니다.</strong><br/>
+                <span style={{ color: 'rgba(255,255,255,0.55)' }}>계산 방법 (한국전기안전공사 2026년도 요율, VAT 10% 포함):</span><br/>
+                · 연간: (기본료 48,400원 + {totalKw}kW × 1,165원) = <strong style={{ color: 'rgba(255,255,255,0.60)' }}>연 {estElecSafetyYearly.toLocaleString()}원</strong><br/>
+                · 월 환산: <strong style={{ color: 'rgba(255,255,255,0.60)' }}>{Math.round(estElecSafetyYearly / 12).toLocaleString()}원/월</strong> (연간 ÷ 12)
               </p>
               <SLabel ch="전기안전관리대행비 (원/월)"/>
               <SNum value={params.monthly_elec_safety ?? 0} onChange={v => setParams({ monthly_elec_safety: v })} step={10000} min={0}/>
@@ -1003,7 +1001,7 @@ function SettingsSidebar({ params, setParams, collapsed, setCollapsed, firstRec,
             <div style={{ padding: '12px 12px 14px', borderRadius: 8, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
                 <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.75)' }}>충전시설 사고배상책임보험</span>
-                <span style={{ fontSize: 10, color: 'rgba(52,211,153,0.80)', background: 'rgba(52,211,153,0.10)', borderRadius: 4, padding: '1px 6px' }}>월 환산 입력</span>
+                <span style={{ fontSize: 10, color: 'rgba(52,211,153,0.80)', background: 'rgba(52,211,153,0.10)', borderRadius: 4, padding: '1px 6px' }}>연간 입력</span>
               </div>
               <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.40)', lineHeight: 1.7, marginBottom: 8 }}>
                 EV 충전시설 화재·감전 등 사고 발생 시 제3자 손해를 보상하는 배상책임보험. 1년 단위 갱신. 연간 보험료를 입력하세요. <strong style={{ color: 'rgba(255,200,100,0.70)' }}>보험료는 부가세 면세 항목입니다.</strong><br/>
