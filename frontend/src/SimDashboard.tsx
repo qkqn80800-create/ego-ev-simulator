@@ -3274,13 +3274,6 @@ function MainContent({ params, setParams, onResult, isMobile = false, scrollCont
               border: `2px solid ${C.accent}`, borderTopColor: 'transparent',
               animation: 'spin 0.8s linear infinite',
             }}/>}
-            {kpiCollapsed && (
-              <button onClick={() => setKpiCollapsed(false)} style={{
-                flexShrink: 0, background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.25)',
-                borderRadius: 7, color: 'white', fontSize: 12, fontWeight: 600,
-                padding: isMobile ? '5px 8px' : '6px 12px', cursor: 'pointer', whiteSpace: 'nowrap',
-              }}>▼ 펼치기</button>
-            )}
           </div>
         </div>
 
@@ -3320,15 +3313,13 @@ function MainContent({ params, setParams, onResult, isMobile = false, scrollCont
             </div>
           )
         })()}
-        {!kpiCollapsed && (
-          <div style={{ display: 'flex', justifyContent: 'center', padding: isMobile ? '6px 12px 2px' : '6px 60px 2px' }}>
-            <button onClick={() => setKpiCollapsed(true)} style={{
-              background: 'rgba(107,114,128,0.08)', border: '1px solid rgba(107,114,128,0.2)',
-              borderRadius: 7, color: '#6b7280', fontSize: 12, fontWeight: 600,
-              padding: '4px 20px', cursor: 'pointer', whiteSpace: 'nowrap',
-            }}>▲ 접기</button>
-          </div>
-        )}
+        <div style={{ display: 'flex', justifyContent: 'center', padding: isMobile ? '4px 12px 2px' : '4px 60px 2px' }}>
+          <button onClick={() => setKpiCollapsed(v => !v)} style={{
+            background: 'rgba(107,114,128,0.08)', border: '1px solid rgba(107,114,128,0.2)',
+            borderRadius: 7, color: '#6b7280', fontSize: 14, fontWeight: 600,
+            padding: '3px 24px', cursor: 'pointer', lineHeight: 1,
+          }}>{kpiCollapsed ? '▼' : '▲'}</button>
+        </div>
 
         {/* 탭 바 */}
         <div style={{ padding: isMobile ? '8px 12px 0' : '8px 60px 0' }}>
