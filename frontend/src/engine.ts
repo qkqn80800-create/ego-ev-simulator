@@ -65,7 +65,7 @@ export function runSimulation(p: SimParams): SimResult {
         }, 0)
       : p.monthly_ops
     const instThisMonth = isInstallment && m <= instMonths ? monthlyInstallment : 0
-    // monthly_elec_safety, monthly_insurance는 고객 안내용 — 비용 미반영
+    // monthly_elec_safety, insurance_yearly는 고객 안내용 — 비용 미반영
     const totalCost = elecCost + perTypeOps + p.monthly_as + (p.monthly_comm ?? 5000) + p.monthly_other + instThisMonth
     const netProfit = myRevenue - totalCost
     cumulative += netProfit
