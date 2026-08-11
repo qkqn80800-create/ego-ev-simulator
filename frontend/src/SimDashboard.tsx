@@ -657,9 +657,32 @@ function SettingsSidebar({ params, setParams, collapsed, setCollapsed, firstRec,
   const estSupervision = totalKw < 75 ? 0
     : totalKw <= 100 ? 1_500_000 : totalKw <= 500 ? 3_000_000 : 5_000_000
   const estSafety = totalKw < 75 ? 0 : estSafetyInspection + estSupervision
-  // 전기안전점검 수수료 (한국전기안전공사 2026년도, VAT별도 × 1.1, 연간 → 월 환산)
-  const estElecSafetyYearly = Math.round((44_000 + totalKw * 1_059) * 1.1)
-  const estElecSafety = totalKw < 75 ? 0 : Math.round(estElecSafetyYearly / 12)
+  // 전기안전관리대행 수수료 (한국전기안전공사 2026년도, VAT별도 × 1.1, 월 수수료)
+  const estElecSafetyBase = isLowVoltage
+    ? totalKw <= 50  ? 94_900
+    : totalKw <= 100 ? 108_500
+    : totalKw <= 200 ? 123_700
+    : totalKw <= 300 ? 141_500
+    : totalKw <= 400 ? 216_100
+    :                  259_200
+    : /* 고압 */
+      totalKw <= 100  ? 134_100
+    : totalKw <= 200  ? 166_100
+    : totalKw <= 300  ? 184_300
+    : totalKw <= 400  ? 269_800
+    : totalKw <= 500  ? 319_200
+    : totalKw <= 600  ? 421_900
+    : totalKw <= 700  ? 542_900
+    : totalKw <= 800  ? 656_300
+    : totalKw <= 900  ? 814_200
+    : totalKw <= 1_000  ? 945_200
+    : totalKw <= 1_250  ? 1_236_400
+    : totalKw <= 1_500  ? 1_487_600
+    : totalKw <= 2_000  ? 2_032_400
+    : totalKw <= 2_500  ? 2_705_900
+    : totalKw <= 3_500  ? 3_096_900
+    :                     3_716_300
+  const estElecSafety = totalKw < 75 ? 0 : Math.round(estElecSafetyBase * 1.1)
   // 충전시설 사고배상책임보험(월): 총 충전기 대수 구간별
   const totalCount = params.charger_configs.reduce((s, c) => s + c.count, 0)
   // 연간 보험료 기준 (월 단가 × 12)
@@ -912,7 +935,7 @@ function SettingsSidebar({ params, setParams, collapsed, setCollapsed, firstRec,
                 </p>
               )}
               {estSafety > 0 && <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.50)' }}>사용전검사·안전관리·감리: {estSafety.toLocaleString()}원 <span style={{ color: 'rgba(52,211,153,0.60)' }}>(부가세 포함)</span></p>}
-              {estElecSafetyYearly > 0 && totalKw >= 75 && <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.50)' }}>전기안전점검: {estElecSafetyYearly.toLocaleString()}원/년 (월 {Math.round(estElecSafetyYearly/12).toLocaleString()}원) <span style={{ color: 'rgba(52,211,153,0.60)' }}>(부가세 포함)</span></p>}
+              {estElecSafety > 0 && <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.50)' }}>전기안전관리대행비: {estElecSafety.toLocaleString()}원/월 <span style={{ color: 'rgba(52,211,153,0.60)' }}>(부가세 포함)</span></p>}
               {insuranceNote
                 ? <p style={{ fontSize: 10, color: 'rgba(248,113,113,0.70)' }}>보험료: {insuranceNote}</p>
                 : <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.50)' }}>충전시설 배상책임보험: {estInsurance.toLocaleString()}원/년 ({totalCount}대 기준) <span style={{ color: 'rgba(255,255,255,0.30)' }}>(부가세 면세)</span></p>
@@ -987,10 +1010,19 @@ function SettingsSidebar({ params, setParams, collapsed, setCollapsed, firstRec,
                 <span style={{ fontSize: 10, color: 'rgba(248,113,113,0.80)', background: 'rgba(248,113,113,0.10)', borderRadius: 4, padding: '1px 6px' }}>75kW 이상</span>
               </div>
               <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.40)', lineHeight: 1.7, marginBottom: 8 }}>
-                전기안전관리법 제13조에 따른 의무 안전점검. 한국전기안전공사에 연 1회 납부. 세금계산서 발행. <strong style={{ color: 'rgba(52,211,153,0.75)' }}>부가세(10%) 포함 금액입니다.</strong><br/>
-                <span style={{ color: 'rgba(255,255,255,0.55)' }}>계산 방법 (한국전기안전공사 2026년도 요율, VAT 10% 포함):</span><br/>
-                · 연간: (기본료 48,400원 + {totalKw}kW × 1,165원) = <strong style={{ color: 'rgba(255,255,255,0.60)' }}>연 {estElecSafetyYearly.toLocaleString()}원</strong><br/>
-                · 월 환산: <strong style={{ color: 'rgba(255,255,255,0.60)' }}>{Math.round(estElecSafetyYearly / 12).toLocaleString()}원/월</strong> (연간 ÷ 12)
+                전기안전관리대행업체에 매월 납부하는 의무 계약 수수료. 세금계산서 발행. <strong style={{ color: 'rgba(52,211,153,0.75)' }}>부가세(10%) 포함 금액입니다.</strong><br/>
+                <span style={{ color: 'rgba(255,255,255,0.55)' }}>월 수수료 (한국전기안전공사 2026년도 요율, VAT 10% 포함):</span><br/>
+                {isLowVoltage ? <>
+                  · 저압 50kW이하: 104,390원 &nbsp;· 50~100kW: 119,350원<br/>
+                  · 100~200kW: 136,070원 &nbsp;· 200~300kW: 155,650원<br/>
+                  · 300~400kW: 237,710원 &nbsp;· 400kW초과: 285,120원<br/>
+                  · 현재 {totalKw}kW({isLowVoltage ? '저압' : '고압'}) → <strong style={{ color: 'rgba(255,255,255,0.70)' }}>월 {(totalKw < 75 ? 0 : estElecSafety).toLocaleString()}원</strong>
+                </> : <>
+                  · 고압 100kW이하: 147,510원 &nbsp;· 100~200kW: 182,710원<br/>
+                  · 200~300kW: 202,730원 &nbsp;· 300~400kW: 296,780원<br/>
+                  · 400~500kW: 351,120원 &nbsp;· 500~600kW: 464,090원 이상<br/>
+                  · 현재 {totalKw}kW({isLowVoltage ? '저압' : '고압'}) → <strong style={{ color: 'rgba(255,255,255,0.70)' }}>월 {(totalKw < 75 ? 0 : estElecSafety).toLocaleString()}원</strong>
+                </>}
               </p>
               <SLabel ch="전기안전관리대행비 (원/월)"/>
               <SNum value={params.monthly_elec_safety ?? 0} onChange={v => setParams({ monthly_elec_safety: v })} step={10000} min={0}/>
