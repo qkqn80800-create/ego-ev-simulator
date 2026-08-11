@@ -646,8 +646,18 @@ function SettingsSidebar({ params, setParams, collapsed, setCollapsed, firstRec,
   // 전기안전관리대행비(월, 75kW 이상 대상): 용량 구간별 권장 예산
   const estElecSafety = totalKw < 75 ? 0
     : totalKw <= 100 ? 120_000 : totalKw <= 300 ? 150_000 : totalKw <= 500 ? 180_000 : totalKw <= 1000 ? 250_000 : 300_000
+  // 충전시설 사고배상책임보험(월): 총 충전기 대수 구간별
+  const totalCount = params.charger_configs.reduce((s, c) => s + c.count, 0)
+  const estInsurance = totalCount >= 21 ? 0
+    : totalCount >= 19 ? 70_000
+    : totalCount >= 16 ? 60_000
+    : totalCount >= 11 ? 50_000
+    : totalCount >= 9  ? 40_000
+    : totalCount >= 6  ? 30_000
+    : 20_000
+  const insuranceNote = totalCount >= 21 ? '21대 이상: 별도 확인 필요' : null
 
-  // 계약 용량·전압 종별이 바뀔 때마다 추산값을 자동 반영 (최초 로드 시 불러온 값은 보존)
+  // 계약 용량·전압 종별·대수가 바뀔 때마다 추산값을 자동 반영 (최초 로드 시 불러온 값은 보존)
   const didAutoEstRef = useRef(false)
   useEffect(() => {
     if (!didAutoEstRef.current) { didAutoEstRef.current = true; return }
@@ -655,8 +665,9 @@ function SettingsSidebar({ params, setParams, collapsed, setCollapsed, firstRec,
       cost_kepco_burden: estKepco,
       cost_safety_inspection: estSafety,
       monthly_elec_safety: estElecSafety,
+      monthly_insurance: estInsurance,
     })
-  }, [estKepco, estSafety, estElecSafety]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [estKepco, estSafety, estElecSafety, estInsurance]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const [numTypes, setNumTypes] = useState(params.charger_configs.length)
   const [activeModal, setActiveModal] = useState<'charger' | 'cost' | 'period' | 'elec' | 'installment' | 'extra_costs' | 'kwh_ref' | 'global_update' | null>(null)
@@ -886,6 +897,10 @@ function SettingsSidebar({ params, setParams, collapsed, setCollapsed, firstRec,
               )}
               {estSafety > 0 && <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.50)' }}>사용전검사·안전관리·감리: {estSafety.toLocaleString()}원</p>}
               {estElecSafety > 0 && <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.50)' }}>전기안전관리대행비: {estElecSafety.toLocaleString()}원/월</p>}
+              {insuranceNote
+                ? <p style={{ fontSize: 10, color: 'rgba(248,113,113,0.70)' }}>보험료: {insuranceNote}</p>
+                : <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.50)' }}>충전시설 배상책임보험: {estInsurance.toLocaleString()}원/월 ({totalCount}대 기준)</p>
+              }
               {estKepco === 0 && estSafety === 0 && estElecSafety === 0 && (
                 <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)' }}>충전기 구성을 입력하면 추산이 표시됩니다</p>
               )}
@@ -919,6 +934,7 @@ function SettingsSidebar({ params, setParams, collapsed, setCollapsed, firstRec,
               </p>
               <SLabel ch="한전 시설부담금 (원)"/>
               <SNum value={params.cost_kepco_burden ?? 0} onChange={v => setParams({ cost_kepco_burden: v })} step={100000} min={0}/>
+              {(params.cost_kepco_burden ?? 0) > 0 && <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.40)', marginTop: 4, fontVariantNumeric: 'tabular-nums' }}>{(params.cost_kepco_burden ?? 0).toLocaleString()}원</p>}
             </div>
 
             {/* 사용전검사 / 안전관리자 / 감리 */}
@@ -936,6 +952,7 @@ function SettingsSidebar({ params, setParams, collapsed, setCollapsed, firstRec,
               </p>
               <SLabel ch="사용전검사·안전관리자·감리비 합계 (원)"/>
               <SNum value={params.cost_safety_inspection ?? 0} onChange={v => setParams({ cost_safety_inspection: v })} step={100000} min={0}/>
+              {(params.cost_safety_inspection ?? 0) > 0 && <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.40)', marginTop: 4, fontVariantNumeric: 'tabular-nums' }}>{(params.cost_safety_inspection ?? 0).toLocaleString()}원</p>}
             </div>
           </div>
 
@@ -960,6 +977,7 @@ function SettingsSidebar({ params, setParams, collapsed, setCollapsed, firstRec,
               </p>
               <SLabel ch="전기안전관리대행비 (원/월)"/>
               <SNum value={params.monthly_elec_safety ?? 0} onChange={v => setParams({ monthly_elec_safety: v })} step={10000} min={0}/>
+              {(params.monthly_elec_safety ?? 0) > 0 && <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.40)', marginTop: 4, fontVariantNumeric: 'tabular-nums' }}>{(params.monthly_elec_safety ?? 0).toLocaleString()}원/월</p>}
             </div>
 
             {/* 충전시설 사고배상책임보험 */}
@@ -969,14 +987,18 @@ function SettingsSidebar({ params, setParams, collapsed, setCollapsed, firstRec,
                 <span style={{ fontSize: 10, color: 'rgba(52,211,153,0.80)', background: 'rgba(52,211,153,0.10)', borderRadius: 4, padding: '1px 6px' }}>월 환산 입력</span>
               </div>
               <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.40)', lineHeight: 1.7, marginBottom: 8 }}>
-                EV 충전시설 화재·감전 등 사고 발생 시 제3자 손해를 보상하는 배상책임보험.<br/>
-                <span style={{ color: 'rgba(255,255,255,0.55)' }}>계산 방법:</span><br/>
-                · 연간 보험료 ÷ 12 = 월 환산액 입력<br/>
-                · 보험료 수준: 충전기 대수·용량 및 보험사에 따라 상이. 통상 연 20~60만원 내외.<br/>
-                · 예) 연 360,000원 → 월 30,000원 입력
+                EV 충전시설 화재·감전 등 사고 발생 시 제3자 손해를 보상하는 배상책임보험. 연간 보험료 ÷ 12 = 월 환산액 입력.<br/>
+                <span style={{ color: 'rgba(255,255,255,0.55)' }}>충전기 대수별 월 보험료 기준:</span><br/>
+                · 1~5대: 20,000원 &nbsp;· 6~8대: 30,000원 &nbsp;· 9~10대: 40,000원<br/>
+                · 11~15대: 50,000원 &nbsp;· 16~18대: 60,000원 &nbsp;· 19~20대: 70,000원<br/>
+                · 21대 이상: 별도 확인 필요
               </p>
+              {insuranceNote && (
+                <p style={{ fontSize: 10, color: 'rgba(248,113,113,0.80)', marginBottom: 8, fontWeight: 600 }}>⚠ {insuranceNote}</p>
+              )}
               <SLabel ch="보험료 (원/월)"/>
               <SNum value={params.monthly_insurance ?? 0} onChange={v => setParams({ monthly_insurance: v })} step={1000} min={0}/>
+              {(params.monthly_insurance ?? 0) > 0 && <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.40)', marginTop: 4, fontVariantNumeric: 'tabular-nums' }}>{(params.monthly_insurance ?? 0).toLocaleString()}원/월</p>}
             </div>
           </div>
 
