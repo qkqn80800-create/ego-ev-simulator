@@ -645,10 +645,18 @@ function SettingsSidebar({ params, setParams, collapsed, setCollapsed, firstRec,
   const estKepcoDistance = Math.round(kepcoExcessM * 53_000 * 1.1)
   const estKepco = estKepcoBase + estKepcoDistance
   // 사용전검사 + 전기감리(초기 1회, 75kW 이상 대상): 용량 구간별 권장 예산 합산
-  const estSafety = totalKw < 75 ? 0 : (
-    (totalKw <= 100 ? 150_000 : totalKw <= 500 ? 250_000 : totalKw <= 1000 ? 400_000 : totalKw <= 2000 ? 600_000 : 700_000)
-    + (totalKw <= 100 ? 1_500_000 : totalKw <= 500 ? 3_000_000 : 5_000_000)
-  )
+  // 사용전검사 수수료 (한국전기안전공사 2026년도, VAT별도 × 1.1)
+  const estSafetyInspection = isLowVoltage
+    ? Math.round((94_000 + totalKw * 391) * 1.1)
+    : totalKw <= 300
+      ? Math.round((298_000 + totalKw * 660) * 1.1)
+      : totalKw <= 1_000
+        ? Math.round((559_000 + totalKw * 315) * 1.1)
+        : Math.round((678_000 + Math.min(totalKw - 1_000, 99_000) * 152 + Math.max(0, totalKw - 100_000) * 32) * 1.1)
+  // 감리비 추산 (감리대가 기준, 부가세 포함)
+  const estSupervision = totalKw < 75 ? 0
+    : totalKw <= 100 ? 1_500_000 : totalKw <= 500 ? 3_000_000 : 5_000_000
+  const estSafety = totalKw < 75 ? 0 : estSafetyInspection + estSupervision
   // 전기안전관리대행비(월, 75kW 이상 대상): 용량 구간별 권장 예산
   const estElecSafety = totalKw < 75 ? 0
     : totalKw <= 100 ? 120_000 : totalKw <= 300 ? 150_000 : totalKw <= 500 ? 180_000 : totalKw <= 1000 ? 250_000 : 300_000
@@ -953,10 +961,13 @@ function SettingsSidebar({ params, setParams, collapsed, setCollapsed, firstRec,
               </div>
               <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.40)', lineHeight: 1.7, marginBottom: 8 }}>
                 총 설치 용량 75kW 이상 시 한전 사용전검사 및 전기감리 의무. 이에스앤에이치(ES&amp;H) 등 대행업체에서 일괄 처리. <strong style={{ color: 'rgba(52,211,153,0.75)' }}>부가세(10%) 포함 금액입니다.</strong><br/>
-                <span style={{ color: 'rgba(255,255,255,0.55)' }}>계산 방법 (용량 구간별 추산, 부가세 포함):</span><br/>
-                · 75~100kW: 사용전검사 약 15만원 + 감리 약 150만원 = <strong style={{ color: 'rgba(255,255,255,0.60)' }}>약 165만원</strong><br/>
-                · 100~500kW: 사용전검사 약 25만원 + 감리 약 300만원 = <strong style={{ color: 'rgba(255,255,255,0.60)' }}>약 325만원</strong><br/>
-                · 500kW 초과: 별도 협의. 세금계산서 발행.
+                <span style={{ color: 'rgba(255,255,255,0.55)' }}>사용전검사 수수료 (한국전기안전공사 2026년도 요율, VAT 10% 포함):</span><br/>
+                · 저압: 기본료 103,400원 + {totalKw}kW × 430원 = <strong style={{ color: 'rgba(255,255,255,0.60)' }}>{Math.round((94_000 + totalKw * 391) * 1.1).toLocaleString()}원</strong><br/>
+                · 고압 300kW이하: 기본료 327,800원 + kW당 726원<br/>
+                · 고압 300kW초과: 기본료 614,900원 + kW당 347원<br/>
+                <span style={{ color: 'rgba(255,255,255,0.55)' }}>감리비 추산 (부가세 포함):</span><br/>
+                · 75~100kW: 약 150만원 &nbsp;· 100~500kW: 약 300만원 &nbsp;· 500kW 초과: 약 500만원<br/>
+                세금계산서 발행.
               </p>
               <SLabel ch="사용전검사·안전관리자·감리비 합계 (원)"/>
               <SNum value={params.cost_safety_inspection ?? 0} onChange={v => setParams({ cost_safety_inspection: v })} step={100000} min={0}/>
