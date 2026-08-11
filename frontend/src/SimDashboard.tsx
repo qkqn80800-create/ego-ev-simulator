@@ -624,6 +624,40 @@ function SettingsSidebar({ params, setParams, collapsed, setCollapsed, firstRec,
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // 용량 기준 자동 추산값 — 한전 표준시설부담금(공중 기준)·사용전검사·전기감리·전기안전관리대행 요율표 반영
+  const totalKw = params.charger_configs.reduce((s, c) => s + c.kw * c.count, 0)
+  const isLowVoltage = params.elec_type === '저압'
+  // 한전 기본시설부담금 단가표(공중공급 기준, 부가가치세 불포함 단가 × 1.1로 VAT 포함액 산정)
+  // 저압 5kW까지 306,000원 / 초과분 121,000원·kW · 고압·특고압 24,000원/kW (부가세 불포함 단가)
+  const estKepcoBase = isLowVoltage
+    ? Math.round(totalKw <= 5 ? 306_000 * 1.1 : (306_000 + (totalKw - 5) * 121_000) * 1.1)
+    : Math.round(totalKw * 24_000 * 1.1)
+  // 한전 거리시설부담금(신설거리, 공중공급 기준·부가세 불포함 단가 × 1.1): 기본거리(공중 200m) 초과분 × 1m당 단가
+  // 저압 삼상 53,000원/m · 고압·특고압 53,000원/m 가정(단상 저압은 48,000원/m — 대부분 3상 계약 기준으로 산정)
+  const kepcoDistanceM = params.kepco_line_distance_m || 0
+  const kepcoExcessM = Math.floor(Math.max(0, kepcoDistanceM - 200))
+  const estKepcoDistance = Math.round(kepcoExcessM * 53_000 * 1.1)
+  const estKepco = estKepcoBase + estKepcoDistance
+  // 사용전검사 + 전기감리(초기 1회, 75kW 이상 대상): 용량 구간별 권장 예산 합산
+  const estSafety = totalKw < 75 ? 0 : (
+    (totalKw <= 100 ? 150_000 : totalKw <= 500 ? 250_000 : totalKw <= 1000 ? 400_000 : totalKw <= 2000 ? 600_000 : 700_000)
+    + (totalKw <= 100 ? 1_500_000 : totalKw <= 500 ? 3_000_000 : 5_000_000)
+  )
+  // 전기안전관리대행비(월, 75kW 이상 대상): 용량 구간별 권장 예산
+  const estElecSafety = totalKw < 75 ? 0
+    : totalKw <= 100 ? 120_000 : totalKw <= 300 ? 150_000 : totalKw <= 500 ? 180_000 : totalKw <= 1000 ? 250_000 : 300_000
+
+  // 계약 용량·전압 종별이 바뀔 때마다 추산값을 자동 반영 (최초 로드 시 불러온 값은 보존)
+  const didAutoEstRef = useRef(false)
+  useEffect(() => {
+    if (!didAutoEstRef.current) { didAutoEstRef.current = true; return }
+    setParams({
+      cost_kepco_burden: estKepco,
+      cost_safety_inspection: estSafety,
+      monthly_elec_safety: estElecSafety,
+    })
+  }, [estKepco, estSafety, estElecSafety]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const [numTypes, setNumTypes] = useState(params.charger_configs.length)
   const [activeModal, setActiveModal] = useState<'charger' | 'cost' | 'period' | 'elec' | 'installment' | 'extra_costs' | 'kwh_ref' | 'global_update' | null>(null)
   const [vehicleKwhOpen, setVehicleKwhOpen] = useState<number | null>(null)
@@ -838,48 +872,36 @@ function SettingsSidebar({ params, setParams, collapsed, setCollapsed, firstRec,
             </p>
           </div>
 
-          {/* 용량 기준 자동 추산 */}
-          {(() => {
-            const totalKw = params.charger_configs.reduce((s, c) => s + c.kw * c.count, 0)
-            const isLow = params.elec_type === '저압'
-            // 한전 시설부담금: 저압 신청 시 계약용량 기준 추산 (업계 평균)
-            const estKepco = isLow ? Math.max(500_000, Math.round(totalKw * 12_000 / 10_000) * 10_000) : 0
-            // 사용전검사·안전관리자·감리비: 75kW 이상 시 (초기 1회)
-            const estSafety = totalKw >= 75 ? Math.round((1_000_000 + totalKw * 8_000) / 10_000) * 10_000 : 0
-            // 전기안전관리대행비: 75kW 이상 시 (월)
-            const estElecSafety = totalKw >= 75 ? (totalKw >= 200 ? 200_000 : totalKw >= 100 ? 150_000 : 100_000) : 0
-            return (
-              <div style={{ marginBottom: 14, padding: '11px 14px 13px', borderRadius: 8, background: 'rgba(52,211,153,0.07)', border: '1px solid rgba(52,211,153,0.22)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
-                  <div style={{ flex: 1 }}>
-                    <p style={{ fontSize: 11, fontWeight: 700, color: 'rgba(52,211,153,0.90)', marginBottom: 5 }}>
-                      총 계약 용량 {totalKw}kW · {isLow ? '저압' : '고압'} 기준 추산
-                    </p>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                      {estKepco > 0 && <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.50)' }}>한전 시설부담금: {estKepco.toLocaleString()}원</p>}
-                      {estSafety > 0 && <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.50)' }}>사용전검사·안전관리·감리: {estSafety.toLocaleString()}원</p>}
-                      {estElecSafety > 0 && <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.50)' }}>전기안전관리대행비: {estElecSafety.toLocaleString()}원/월</p>}
-                      {estKepco === 0 && estSafety === 0 && estElecSafety === 0 && (
-                        <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)' }}>{totalKw}kW {isLow ? '' : '(고압)'}· 추산 항목 없음 (75kW 미만·고압)</p>
-                      )}
-                    </div>
-                  </div>
-                  {(estKepco > 0 || estSafety > 0 || estElecSafety > 0) && (
-                    <button onClick={() => setParams({
-                      cost_kepco_burden: estKepco,
-                      cost_safety_inspection: estSafety,
-                      monthly_elec_safety: estElecSafety,
-                    })} style={{
-                      padding: '7px 12px', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer',
-                      background: 'rgba(52,211,153,0.18)', border: '1px solid rgba(52,211,153,0.35)',
-                      color: 'rgba(52,211,153,0.90)', whiteSpace: 'nowrap', flexShrink: 0,
-                    }}>자동 입력</button>
-                  )}
-                </div>
-                <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.25)', marginTop: 6 }}>업계 평균 기준 추산값. 실제 계약 조건·지역에 따라 다를 수 있습니다. 직접 수정 가능합니다.</p>
-              </div>
-            )
-          })()}
+          {/* 용량 기준 자동 추산 (계약 용량·전압 종별 변경 시 자동 반영) */}
+          <div style={{ marginBottom: 14, padding: '11px 14px 13px', borderRadius: 8, background: 'rgba(52,211,153,0.07)', border: '1px solid rgba(52,211,153,0.22)' }}>
+            <p style={{ fontSize: 11, fontWeight: 700, color: 'rgba(52,211,153,0.90)', marginBottom: 5 }}>
+              총 계약 용량 {totalKw}kW · {isLowVoltage ? '저압' : '고압'} 기준 추산 · 자동 반영됨
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {estKepco > 0 && (
+                <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.50)' }}>
+                  한전 시설부담금: {estKepco.toLocaleString()}원
+                  {estKepcoDistance > 0 && ` (기본 ${estKepcoBase.toLocaleString()} + 거리 ${estKepcoDistance.toLocaleString()})`}
+                </p>
+              )}
+              {estSafety > 0 && <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.50)' }}>사용전검사·안전관리·감리: {estSafety.toLocaleString()}원</p>}
+              {estElecSafety > 0 && <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.50)' }}>전기안전관리대행비: {estElecSafety.toLocaleString()}원/월</p>}
+              {estKepco === 0 && estSafety === 0 && estElecSafety === 0 && (
+                <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)' }}>충전기 구성을 입력하면 추산이 표시됩니다</p>
+              )}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
+              <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', whiteSpace: 'nowrap' }}>한전 신설 인입거리</span>
+              <input type="number" min={0} step={10} value={params.kepco_line_distance_m || 0}
+                onChange={e => setParams({ kepco_line_distance_m: Math.max(0, Number(e.target.value) || 0) })}
+                style={{ width: 70, padding: '3px 6px', borderRadius: 5, fontSize: 10, background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff' }}/>
+              <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)' }}>m (기본거리 200m 초과분만 부담금 발생)</span>
+            </div>
+            <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.25)', marginTop: 6 }}>
+              한전 기본시설부담금·거리시설부담금(공중 포설·3상 기준)·사용전검사·전기감리·전기안전관리대행 요율표를 반영한 추산값이며, 계약 용량·전압 종별·인입거리가 바뀌면 아래 입력값에 자동 반영됩니다.
+              지중 포설, 단상 계약, 첨가거리공사는 반영되지 않았습니다. <strong style={{ color: 'rgba(255,255,255,0.40)' }}>현장 상황과 시공·대행 업체에 따라 실제 금액은 상이할 수 있으니 참고용으로만 활용하고 직접 수정해 주세요.</strong>
+            </p>
+          </div>
 
           {/* ── 초기 1회 발생 비용 ── */}
           <div style={{ padding: '14px 14px 16px', borderRadius: 10, background: 'rgba(255,255,255,0.06)', marginBottom: 14 }}>
@@ -893,7 +915,7 @@ function SettingsSidebar({ params, setParams, collapsed, setCollapsed, firstRec,
                 <span style={{ fontSize: 10, color: 'rgba(255,200,100,0.70)', background: 'rgba(255,200,100,0.10)', borderRadius: 4, padding: '1px 6px' }}>저압 신청 시</span>
               </div>
               <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.40)', lineHeight: 1.6, marginBottom: 8 }}>
-                한전에 저압 전기공급 신청 시 발생하는 비용. 계약 용량·지역에 따라 상이 (통상 50~200만원 내외). 세금계산서 발행.
+                한전에 전기공급 신청 시 발생하는 비용(기본시설부담금 + 거리시설부담금). 저압 5kW까지 336,600원 + 초과분 133,100원/kW, 고압 26,400원/kW (공중 포설·VAT 포함 기준). 인입거리가 기본거리(공중 200m)를 넘으면 초과 1m당 58,300원이 가산됩니다. 지중 포설·단상 계약은 별도 산정. 세금계산서 발행.
               </p>
               <SLabel ch="한전 시설부담금 (원)"/>
               <SNum value={params.cost_kepco_burden ?? 0} onChange={v => setParams({ cost_kepco_burden: v })} step={100000} min={0}/>

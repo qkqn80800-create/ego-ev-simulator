@@ -29,7 +29,8 @@ export interface SimParams {
   cost_charger_unit: number
   cost_installation: number
   cost_other_init: number
-  cost_kepco_burden: number       // 한전 시설부담금 (초기 1회)
+  cost_kepco_burden: number       // 한전 시설부담금 (초기 1회, 기본시설부담금 + 거리시설부담금)
+  kepco_line_distance_m: number   // 한전 신설 인입거리 (m) — 거리시설부담금 산정용
   cost_safety_inspection: number  // 사용전검사·안전관리자·감리비 (초기 1회, 75kW 이상)
   monthly_ops: number
   monthly_as: number
@@ -110,6 +111,7 @@ export const DEFAULT_PARAMS: SimParams = {
   cost_installation: 3_300_000,
   cost_other_init: 0,
   cost_kepco_burden: 0,
+  kepco_line_distance_m: 0,
   cost_safety_inspection: 0,
   monthly_ops: 33_000,
   monthly_as: 0,
