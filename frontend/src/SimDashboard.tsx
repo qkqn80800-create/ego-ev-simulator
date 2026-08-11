@@ -1051,6 +1051,22 @@ function SettingsSidebar({ params, setParams, collapsed, setCollapsed, firstRec,
             </div>
           </div>
 
+          {/* 추가 안내 */}
+          <div style={{ marginTop: 14, padding: '12px 14px', borderRadius: 8, background: 'rgba(255,200,100,0.07)', border: '1px solid rgba(255,200,100,0.20)' }}>
+            <p style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,200,100,0.70)', marginBottom: 8, letterSpacing: '0.05em', textTransform: 'uppercase' }}>⚠ 추가 비용 안내</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)', lineHeight: 1.6 }}>
+                · <strong style={{ color: 'rgba(255,200,100,0.75)' }}>자가용설비 정기검사</strong> — 전기안전관리법 제65조에 따라 자가용 전기설비는 주기적으로 정기검사를 받아야 합니다. 검사 주기 및 수수료는 설비 용량과 종류에 따라 다르며, 별도 비용이 발생할 수 있습니다.
+              </p>
+              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)', lineHeight: 1.6 }}>
+                · <strong style={{ color: 'rgba(255,200,100,0.75)' }}>법령 변경에 따른 추가 비용</strong> — 전기안전관리법, 전기사업법, 환경부 충전인프라 관련 고시 등 관련 법령의 개정에 따라 안전관리 의무, 수수료 요율, 검사 기준 등이 변경될 수 있으며, 이에 따른 추가 비용이 발생할 수 있습니다.
+              </p>
+              <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.30)', marginTop: 2 }}>
+                위 항목들은 현장 상황 및 법령 시행 시기에 따라 달라질 수 있으므로 설치 전 담당 기관에 확인하시기 바랍니다.
+              </p>
+            </div>
+          </div>
+
         </Modal>
       )}
 
