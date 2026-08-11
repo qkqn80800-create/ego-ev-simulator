@@ -69,23 +69,29 @@ function SText({ value, onChange, style: extraStyle }: { value: string; onChange
   )
 }
 
+function fmtComma(n: number) { return n === 0 ? '0' : n.toLocaleString('ko-KR') }
+function parseComma(s: string) { return Number(s.replace(/,/g, '')) }
 function SNum({ value, onChange, step = 1, min }: {
   value: number; onChange: (v: number) => void; step?: number; min?: number
 }) {
-  const [local, setLocal] = React.useState(String(value))
-  React.useEffect(() => { setLocal(String(value)) }, [value])
+  const [local, setLocal] = React.useState(fmtComma(value))
+  const [focused, setFocused] = React.useState(false)
+  React.useEffect(() => { if (!focused) setLocal(fmtComma(value)) }, [value, focused])
   return (
-    <input type="number" value={local} step={step} min={min}
+    <input type="text" inputMode="numeric" value={local}
       onChange={e => {
-        setLocal(e.target.value)
-        const n = Number(e.target.value)
+        const raw = e.target.value.replace(/[^0-9\-]/g, '')
+        setLocal(raw)
+        const n = Number(raw)
         if (!isNaN(n)) onChange(n)
       }}
+      onFocus={() => { setFocused(true); setLocal(String(value === 0 ? '' : value)) }}
       onBlur={() => {
-        const n = Number(local)
-        const safe = isNaN(n) ? 0 : n
+        setFocused(false)
+        const n = parseComma(local)
+        const safe = isNaN(n) ? 0 : (min !== undefined ? Math.max(min, n) : n)
         onChange(safe)
-        setLocal(String(safe))
+        setLocal(fmtComma(safe))
       }}
       style={inp}/>
   )
@@ -650,12 +656,12 @@ function SettingsSidebar({ params, setParams, collapsed, setCollapsed, firstRec,
   const totalCount = params.charger_configs.reduce((s, c) => s + c.count, 0)
   // 연간 보험료 기준 (월 단가 × 12)
   const estInsurance = totalCount >= 21 ? 0
-    : totalCount >= 19 ? 70_000 * 12
-    : totalCount >= 16 ? 60_000 * 12
-    : totalCount >= 11 ? 50_000 * 12
-    : totalCount >= 9  ? 40_000 * 12
-    : totalCount >= 6  ? 30_000 * 12
-    : 20_000 * 12
+    : totalCount >= 19 ? 70_000
+    : totalCount >= 16 ? 60_000
+    : totalCount >= 11 ? 50_000
+    : totalCount >= 9  ? 40_000
+    : totalCount >= 6  ? 30_000
+    : 20_000
   const insuranceNote = totalCount >= 21 ? '21대 이상: 별도 확인 필요' : null
 
   // 계약 용량·전압 종별·대수가 바뀔 때마다 추산값을 자동 반영 (최초 로드 시 불러온 값은 보존)
@@ -991,8 +997,8 @@ function SettingsSidebar({ params, setParams, collapsed, setCollapsed, firstRec,
               <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.40)', lineHeight: 1.7, marginBottom: 8 }}>
                 EV 충전시설 화재·감전 등 사고 발생 시 제3자 손해를 보상하는 배상책임보험. 1년 단위 갱신. 연간 보험료를 입력하세요. <strong style={{ color: 'rgba(255,200,100,0.70)' }}>보험료는 부가세 면세 항목입니다.</strong><br/>
                 <span style={{ color: 'rgba(255,255,255,0.55)' }}>충전기 대수별 연간 보험료 기준:</span><br/>
-                · 1~5대: 240,000원 &nbsp;· 6~8대: 360,000원 &nbsp;· 9~10대: 480,000원<br/>
-                · 11~15대: 600,000원 &nbsp;· 16~18대: 720,000원 &nbsp;· 19~20대: 840,000원<br/>
+                · 1~5대: 20,000원 &nbsp;· 6~8대: 30,000원 &nbsp;· 9~10대: 40,000원<br/>
+                · 11~15대: 50,000원 &nbsp;· 16~18대: 60,000원 &nbsp;· 19~20대: 70,000원<br/>
                 · 21대 이상: 별도 확인 필요
               </p>
               {insuranceNote && (
