@@ -868,14 +868,14 @@ function SettingsSidebar({ params, setParams, collapsed, setCollapsed, firstRec,
           <div style={{ padding: '10px 14px 11px', marginBottom: 14, borderRadius: 8, background: 'rgba(99,102,241,0.10)', border: '1px solid rgba(99,102,241,0.22)' }}>
             <p style={{ color: 'rgba(196,191,239,0.55)', fontSize: 10, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 4 }}>항목 안내</p>
             <p style={{ color: 'rgba(255,255,255,0.75)', fontSize: 12, lineHeight: 1.65 }}>
-              충전기 설치 외에 계약 조건·용량에 따라 추가로 발생하는 비용입니다. 입력한 값은 시뮬레이션에 자동 반영됩니다.
+              충전기 설치 외에 계약 조건·용량에 따라 추가로 발생하는 비용입니다. <strong style={{ color: 'rgba(255,200,100,0.80)' }}>고객 안내용 참고 정보이며 시뮬레이션 비용에는 포함되지 않습니다.</strong>
             </p>
           </div>
 
           {/* 용량 기준 자동 추산 (계약 용량·전압 종별 변경 시 자동 반영) */}
           <div style={{ marginBottom: 14, padding: '11px 14px 13px', borderRadius: 8, background: 'rgba(52,211,153,0.07)', border: '1px solid rgba(52,211,153,0.22)' }}>
             <p style={{ fontSize: 11, fontWeight: 700, color: 'rgba(52,211,153,0.90)', marginBottom: 5 }}>
-              총 계약 용량 {totalKw}kW · {isLowVoltage ? '저압' : '고압'} 기준 추산 · 자동 반영됨
+              총 계약 용량 {totalKw}kW · {isLowVoltage ? '저압' : '고압'} 기준 추산 (안내용)
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               {estKepco > 0 && (
@@ -980,29 +980,6 @@ function SettingsSidebar({ params, setParams, collapsed, setCollapsed, firstRec,
             </div>
           </div>
 
-          {/* 실시간 합계 */}
-          {(() => {
-            const initExtra = (params.cost_kepco_burden ?? 0) + (params.cost_safety_inspection ?? 0)
-            const monthlyExtra = (params.monthly_elec_safety ?? 0) + (params.monthly_insurance ?? 0)
-            if (initExtra === 0 && monthlyExtra === 0) return null
-            return (
-              <div style={{ marginTop: 14, padding: '12px 14px', borderRadius: 10, background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.28)' }}>
-                <p style={{ fontSize: 10, fontWeight: 700, color: 'rgba(167,139,250,0.90)', letterSpacing: '0.06em', marginBottom: 8 }}>시뮬레이션 반영 중</p>
-                {initExtra > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                    <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)' }}>초기 1회 추가 비용 합계</span>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.85)', fontVariantNumeric: 'tabular-nums' }}>{initExtra.toLocaleString()}원</span>
-                  </div>
-                )}
-                {monthlyExtra > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)' }}>월 추가 비용 합계</span>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(167,139,250,0.95)', fontVariantNumeric: 'tabular-nums' }}>{monthlyExtra.toLocaleString()}원/월</span>
-                  </div>
-                )}
-              </div>
-            )
-          })()}
         </Modal>
       )}
 

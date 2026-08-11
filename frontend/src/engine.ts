@@ -7,8 +7,8 @@ export function runSimulation(p: SimParams): SimResult {
   const chargerCost = hasPerTypeCost
     ? p.charger_configs.reduce((s, c) => s + ((c.cost_unit ?? p.cost_charger_unit) + (c.cost_install ?? 0)) * c.count, 0)
     : (p.cost_charger_unit + p.cost_installation) * totalCount
-  // 외부 고정 비용: 할인율 미적용 (한전부담금, 사용전검사비, 부속시설물)
-  const fixedExtraInit = (p.cost_other_init ?? 0) + (p.cost_kepco_burden ?? 0) + (p.cost_safety_inspection ?? 0)
+  // 외부 고정 비용: 부속시설물만 포함 (한전부담금·사용전검사비는 고객 안내용, 비용 미반영)
+  const fixedExtraInit = (p.cost_other_init ?? 0)
   const totalInitCost = chargerCost + fixedExtraInit
 
   const isInstallment = p.payment_type === '할부'
@@ -65,7 +65,8 @@ export function runSimulation(p: SimParams): SimResult {
         }, 0)
       : p.monthly_ops
     const instThisMonth = isInstallment && m <= instMonths ? monthlyInstallment : 0
-    const totalCost = elecCost + perTypeOps + p.monthly_as + (p.monthly_comm ?? 5000) + (p.monthly_elec_safety ?? 0) + (p.monthly_insurance ?? 0) + p.monthly_other + instThisMonth
+    // monthly_elec_safety, monthly_insurance는 고객 안내용 — 비용 미반영
+    const totalCost = elecCost + perTypeOps + p.monthly_as + (p.monthly_comm ?? 5000) + p.monthly_other + instThisMonth
     const netProfit = myRevenue - totalCost
     cumulative += netProfit
 
