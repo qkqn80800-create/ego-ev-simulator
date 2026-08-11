@@ -312,6 +312,181 @@ function Modal({ title, onClose, onReset, children, width }: {
   )
 }
 
+// ── ⑤ 추가 발생 비용 모달 (아코디언) ────────────────────────
+function ExtraCostsModal({ params, setParams, onClose, onReset, totalKw, totalCount, isLowVoltage, estKepco, estKepcoBase, estKepcoDistance, estSafety, estElecSafety, estInsurance, insuranceNote }: {
+  params: SimParams; setParams: (p: Partial<SimParams>) => void
+  onClose: () => void; onReset: () => void
+  totalKw: number; totalCount: number; isLowVoltage: boolean
+  estKepco: number; estKepcoBase: number; estKepcoDistance: number
+  estSafety: number; estElecSafety: number; estInsurance: number; insuranceNote: string
+}) {
+  const [openItems, setOpenItems] = useState<Record<string, boolean>>({})
+  const toggle = (key: string) => setOpenItems(prev => ({ ...prev, [key]: !prev[key] }))
+
+  const acItems = [
+    {
+      key: 'kepco',
+      label: '한전 시설부담금',
+      badge: <span style={{ fontSize: 11, color: 'rgba(255,200,100,0.75)', background: 'rgba(255,200,100,0.12)', borderRadius: 4, padding: '2px 7px' }}>저압 신청 시</span>,
+      summary: estKepco > 0 ? `추산: ${estKepco.toLocaleString()}원` : '초기 1회 발생 · 초기 투자비 합산',
+      inputArea: (<>
+        <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: 13, display: 'block', marginBottom: 6 }}>한전 시설부담금 (원)</p>
+        <SNum value={params.cost_kepco_burden ?? 0} onChange={v => setParams({ cost_kepco_burden: v })} step={100000} min={0}/>
+        {(params.cost_kepco_burden ?? 0) > 0 && <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', marginTop: 4, fontVariantNumeric: 'tabular-nums' }}>{(params.cost_kepco_burden ?? 0).toLocaleString()}원</p>}
+      </>),
+      detail: (<p style={{ fontSize: 12, color: 'rgba(255,255,255,0.55)', lineHeight: 1.75 }}>
+        한전에 전기공급 신청 시 발생하는 비용(기본시설부담금 + 거리시설부담금). 저압 5kW까지 336,600원 + 초과분 133,100원/kW, 고압 26,400원/kW (공중 포설 기준). 인입거리가 기본거리(공중 200m)를 넘으면 초과 1m당 58,300원이 가산됩니다. 지중 포설·단상 계약은 별도 산정. 세금계산서 발행. <strong style={{ color: 'rgba(52,211,153,0.85)' }}>부가세(10%) 포함 금액입니다.</strong>
+      </p>),
+    },
+    {
+      key: 'safety',
+      label: '사용전검사 · 안전관리자 · 감리비',
+      badge: <span style={{ fontSize: 11, color: 'rgba(248,113,113,0.80)', background: 'rgba(248,113,113,0.10)', borderRadius: 4, padding: '2px 7px' }}>75kW 이상</span>,
+      summary: estSafety > 0 ? `추산: ${estSafety.toLocaleString()}원` : '초기 1회 발생 · 75kW 이상 의무',
+      inputArea: (<>
+        <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: 13, display: 'block', marginBottom: 6 }}>사용전검사·안전관리자·감리비 합계 (원)</p>
+        <SNum value={params.cost_safety_inspection ?? 0} onChange={v => setParams({ cost_safety_inspection: v })} step={100000} min={0}/>
+        {(params.cost_safety_inspection ?? 0) > 0 && <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', marginTop: 4, fontVariantNumeric: 'tabular-nums' }}>{(params.cost_safety_inspection ?? 0).toLocaleString()}원</p>}
+      </>),
+      detail: (<p style={{ fontSize: 12, color: 'rgba(255,255,255,0.55)', lineHeight: 1.75 }}>
+        총 설치 용량 75kW 이상 시 한전 사용전검사 및 전기감리 의무. 이에스앤에이치(ES&H) 등 대행업체에서 일괄 처리. <strong style={{ color: 'rgba(52,211,153,0.85)' }}>부가세(10%) 포함 금액입니다.</strong><br/>
+        <span style={{ color: 'rgba(255,255,255,0.65)' }}>사용전검사 수수료 (한국전기안전공사 2026년도 요율, VAT 10% 포함):</span><br/>
+        · 저압: 기본료 103,400원 + {totalKw}kW × 430원 = <strong style={{ color: 'rgba(255,255,255,0.75)' }}>{Math.round((94_000 + totalKw * 391) * 1.1).toLocaleString()}원</strong><br/>
+        · 고압 300kW이하: 기본료 327,800원 + kW당 726원<br/>
+        · 고압 300kW초과: 기본료 614,900원 + kW당 347원<br/>
+        <span style={{ color: 'rgba(255,255,255,0.65)' }}>감리비 추산 (부가세 포함):</span><br/>
+        · 75~100kW: 약 150만원 &nbsp;· 100~500kW: 약 300만원 &nbsp;· 500kW 초과: 약 500만원<br/>
+        세금계산서 발행.
+      </p>),
+    },
+    {
+      key: 'elec_safety',
+      label: '전기안전관리대행비',
+      badge: <span style={{ fontSize: 11, color: 'rgba(248,113,113,0.80)', background: 'rgba(248,113,113,0.10)', borderRadius: 4, padding: '2px 7px' }}>75kW 이상</span>,
+      summary: estElecSafety > 0 ? `추산: ${estElecSafety.toLocaleString()}원/월` : '월 발생 · 75kW 이상 의무',
+      inputArea: (<>
+        <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: 13, display: 'block', marginBottom: 6 }}>전기안전관리대행비 (원/월)</p>
+        <SNum value={params.monthly_elec_safety ?? 0} onChange={v => setParams({ monthly_elec_safety: v })} step={10000} min={0}/>
+        {(params.monthly_elec_safety ?? 0) > 0 && <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', marginTop: 4, fontVariantNumeric: 'tabular-nums' }}>{(params.monthly_elec_safety ?? 0).toLocaleString()}원/월</p>}
+      </>),
+      detail: (<p style={{ fontSize: 12, color: 'rgba(255,255,255,0.55)', lineHeight: 1.75 }}>
+        전기안전관리대행업체에 매월 납부하는 의무 계약 수수료. 세금계산서 발행. <strong style={{ color: 'rgba(52,211,153,0.85)' }}>부가세(10%) 포함 금액입니다.</strong><br/>
+        <span style={{ color: 'rgba(255,255,255,0.65)' }}>월 수수료 (한국전기안전공사 2026년도 요율, VAT 10% 포함):</span><br/>
+        {isLowVoltage ? <>
+          · 저압 50kW이하: 104,390원 &nbsp;· 50~100kW: 119,350원<br/>
+          · 100~200kW: 136,070원 &nbsp;· 200~300kW: 155,650원<br/>
+          · 300~400kW: 237,710원 &nbsp;· 400kW초과: 285,120원
+        </> : <>
+          · 고압 100kW이하: 147,510원 &nbsp;· 100~200kW: 182,710원<br/>
+          · 200~300kW: 202,730원 &nbsp;· 300~400kW: 296,780원<br/>
+          · 400~500kW: 351,120원 &nbsp;· 500~600kW: 464,090원 이상
+        </>}<br/>
+        · 현재 {totalKw}kW({isLowVoltage ? '저압' : '고압'}) → <strong style={{ color: 'rgba(255,255,255,0.80)' }}>월 {(totalKw < 75 ? 0 : estElecSafety).toLocaleString()}원</strong>
+      </p>),
+    },
+    {
+      key: 'insurance',
+      label: '충전시설 사고배상책임보험',
+      badge: <span style={{ fontSize: 11, color: 'rgba(52,211,153,0.80)', background: 'rgba(52,211,153,0.10)', borderRadius: 4, padding: '2px 7px' }}>연간 입력</span>,
+      summary: insuranceNote ? `⚠ ${insuranceNote}` : `추산: ${estInsurance.toLocaleString()}원/년 (${totalCount}대 기준)`,
+      inputArea: (<>
+        {insuranceNote && <p style={{ fontSize: 12, color: 'rgba(248,113,113,0.80)', marginBottom: 8, fontWeight: 600 }}>⚠ {insuranceNote}</p>}
+        <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: 13, display: 'block', marginBottom: 6 }}>연간 보험료 (원/년)</p>
+        <SNum value={params.insurance_yearly ?? 0} onChange={v => setParams({ insurance_yearly: v })} step={10000} min={0}/>
+        {(params.insurance_yearly ?? 0) > 0 && <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', marginTop: 4, fontVariantNumeric: 'tabular-nums' }}>{(params.insurance_yearly ?? 0).toLocaleString()}원/년</p>}
+      </>),
+      detail: (<p style={{ fontSize: 12, color: 'rgba(255,255,255,0.55)', lineHeight: 1.75 }}>
+        EV 충전시설 화재·감전 등 사고 발생 시 제3자 손해를 보상하는 배상책임보험. 1년 단위 갱신. 연간 보험료를 입력하세요. <strong style={{ color: 'rgba(255,200,100,0.80)' }}>보험료는 부가세 면세 항목입니다.</strong><br/>
+        <span style={{ color: 'rgba(255,255,255,0.65)' }}>충전기 대수별 연간 보험료 기준:</span><br/>
+        · 1~5대: 20,000원 &nbsp;· 6~8대: 30,000원 &nbsp;· 9~10대: 40,000원<br/>
+        · 11~15대: 50,000원 &nbsp;· 16~18대: 60,000원 &nbsp;· 19~20대: 70,000원<br/>
+        · 21대 이상: 별도 확인 필요
+      </p>),
+    },
+    {
+      key: 'extra_notice',
+      label: '⚠ 추가 비용 안내',
+      badge: undefined as React.ReactNode,
+      summary: '자가용설비 정기검사 · 법령 변경에 따른 비용',
+      inputArea: null as React.ReactNode,
+      detail: (<div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.65)', lineHeight: 1.7 }}>
+          · <strong style={{ color: 'rgba(255,200,100,0.85)' }}>자가용설비 정기검사</strong> — 전기안전관리법 제65조에 따라 자가용 전기설비는 주기적으로 정기검사를 받아야 합니다. 검사 주기 및 수수료는 설비 용량과 종류에 따라 다르며, 별도 비용이 발생할 수 있습니다.
+        </p>
+        <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.65)', lineHeight: 1.7 }}>
+          · <strong style={{ color: 'rgba(255,200,100,0.85)' }}>법령 변경에 따른 추가 비용</strong> — 전기안전관리법, 전기사업법, 환경부 충전인프라 관련 고시 등 관련 법령의 개정에 따라 안전관리 의무, 수수료 요율, 검사 기준 등이 변경될 수 있으며, 이에 따른 추가 비용이 발생할 수 있습니다.
+        </p>
+        <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginTop: 2 }}>
+          위 항목들은 현장 상황 및 법령 시행 시기에 따라 달라질 수 있으므로 설치 전 담당 기관에 확인하시기 바랍니다.
+        </p>
+      </div>),
+    },
+  ]
+
+  return (
+    <Modal title="⑤ 추가 발생 비용" onClose={onClose} onReset={onReset}>
+      {/* 안내 배너 */}
+      <div style={{ padding: '10px 14px 11px', marginBottom: 14, borderRadius: 8, background: 'rgba(99,102,241,0.10)', border: '1px solid rgba(99,102,241,0.22)' }}>
+        <p style={{ color: 'rgba(255,255,255,0.75)', fontSize: 13, lineHeight: 1.65 }}>
+          충전기 설치 외에 계약 조건·용량에 따라 추가로 발생하는 비용입니다. <strong style={{ color: 'rgba(255,200,100,0.80)' }}>고객 안내용 참고 정보이며 시뮬레이션 비용에는 포함되지 않습니다.</strong>
+          <br/><span style={{ color: 'rgba(52,211,153,0.75)', fontSize: 12, fontWeight: 600 }}>※ 모든 금액은 부가세(VAT 10%) 포함 기준입니다.</span>
+        </p>
+      </div>
+
+      {/* 추산 요약 */}
+      <div style={{ marginBottom: 14, padding: '11px 14px 13px', borderRadius: 8, background: 'rgba(52,211,153,0.07)', border: '1px solid rgba(52,211,153,0.22)' }}>
+        <p style={{ fontSize: 13, fontWeight: 700, color: 'rgba(52,211,153,0.90)', marginBottom: 6 }}>
+          총 계약 용량 {totalKw}kW · {isLowVoltage ? '저압' : '고압'} 기준 추산 (안내용)
+        </p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          {estKepco > 0 && <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.60)' }}>한전 시설부담금: {estKepco.toLocaleString()}원 <span style={{ color: 'rgba(52,211,153,0.60)' }}>(부가세 포함)</span>{estKepcoDistance > 0 && ` (기본 ${estKepcoBase.toLocaleString()} + 거리 ${estKepcoDistance.toLocaleString()})`}</p>}
+          {estSafety > 0 && <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.60)' }}>사용전검사·안전관리·감리: {estSafety.toLocaleString()}원 <span style={{ color: 'rgba(52,211,153,0.60)' }}>(부가세 포함)</span></p>}
+          {estElecSafety > 0 && <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.60)' }}>전기안전관리대행비: {estElecSafety.toLocaleString()}원/월 <span style={{ color: 'rgba(52,211,153,0.60)' }}>(부가세 포함)</span></p>}
+          {insuranceNote ? <p style={{ fontSize: 12, color: 'rgba(248,113,113,0.70)' }}>보험료: {insuranceNote}</p>
+            : <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.60)' }}>충전시설 배상책임보험: {estInsurance.toLocaleString()}원/년 ({totalCount}대 기준) <span style={{ color: 'rgba(255,255,255,0.35)' }}>(부가세 면세)</span></p>}
+          {estKepco === 0 && estSafety === 0 && estElecSafety === 0 && <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)' }}>충전기 구성을 입력하면 추산이 표시됩니다</p>}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10 }}>
+          <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.55)', whiteSpace: 'nowrap' }}>한전 신설 인입거리</span>
+          <input type="number" min={0} step={10} value={params.kepco_line_distance_m || 0}
+            onChange={e => setParams({ kepco_line_distance_m: Math.max(0, Number(e.target.value) || 0) })}
+            style={{ width: 70, padding: '4px 7px', borderRadius: 5, fontSize: 12, background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff' }}/>
+          <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.55)' }}>m (기본거리 200m 초과분만 부담금 발생)</span>
+        </div>
+        <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.30)', marginTop: 7 }}>
+          한전 기본시설부담금·거리시설부담금(공중 포설·3상 기준)·사용전검사·전기감리·전기안전관리대행 요율표를 반영한 추산값. 계약 용량·전압 종별·인입거리가 바뀌면 자동 반영됩니다.
+          <strong style={{ color: 'rgba(255,255,255,0.42)' }}> 현장 상황에 따라 실제 금액은 상이할 수 있으니 참고용으로만 활용하고 직접 수정해 주세요.</strong>
+        </p>
+      </div>
+
+      {/* 아코디언 */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {acItems.map(item => {
+          const isOpen = !!openItems[item.key]
+          return (
+            <div key={item.key} style={{ borderRadius: 10, border: `1px solid ${isOpen ? 'rgba(167,139,250,0.35)' : 'rgba(255,255,255,0.10)'}`, overflow: 'hidden', background: isOpen ? 'rgba(109,40,217,0.08)' : 'rgba(255,255,255,0.04)' }}>
+              <button onClick={() => toggle(item.key)} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 14px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', gap: 10 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', flex: 1, minWidth: 0 }}>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: isOpen ? 'rgba(167,139,250,0.95)' : 'rgba(255,255,255,0.85)' }}>{item.label}</span>
+                  {item.badge}
+                  {!isOpen && <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>{item.summary}</span>}
+                </div>
+                <span style={{ fontSize: 14, color: 'rgba(255,255,255,0.40)', flexShrink: 0 }}>{isOpen ? '▲' : '▼'}</span>
+              </button>
+              {isOpen && (
+                <div style={{ padding: '0 14px 16px' }}>
+                  <div style={{ marginBottom: item.inputArea ? 12 : 0 }}>{item.detail}</div>
+                  {item.inputArea}
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </Modal>
+  )
+}
+
 // ── 관리자 기본값 업데이트 모달 ──────────────────────────────
 const DEFAULTS_KEY = 'sim_global_defaults'
 type ChargerTypeEntry = { label: string; kw: number; default_rate: number; default_cost_unit: number; default_cost_install: number; default_monthly_ops: number }
@@ -1016,171 +1191,22 @@ function SettingsSidebar({ params, setParams, collapsed, setCollapsed, firstRec,
 
       {/* ⑤ 추가 발생 비용 */}
       {activeModal === 'extra_costs' && (
-        <Modal title="⑤ 추가 발생 비용" onClose={() => setActiveModal(null)} onReset={() => {
-          const d = gd()
-          setParams({
-            cost_kepco_burden: d.cost_kepco_burden ?? 0,
-            cost_safety_inspection: d.cost_safety_inspection ?? 0,
-            monthly_elec_safety: d.monthly_elec_safety ?? 0,
-
-            insurance_yearly: d.insurance_yearly ?? 0,
-          })
-        }}>
-          {/* 안내 배너 */}
-          <div style={{ padding: '10px 14px 11px', marginBottom: 14, borderRadius: 8, background: 'rgba(99,102,241,0.10)', border: '1px solid rgba(99,102,241,0.22)' }}>
-            <p style={{ color: 'rgba(196,191,239,0.55)', fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 4 }}>항목 안내</p>
-            <p style={{ color: 'rgba(255,255,255,0.75)', fontSize: 13, lineHeight: 1.65 }}>
-              충전기 설치 외에 계약 조건·용량에 따라 추가로 발생하는 비용입니다. <strong style={{ color: 'rgba(255,200,100,0.80)' }}>고객 안내용 참고 정보이며 시뮬레이션 비용에는 포함되지 않습니다.</strong>
-              <br/><span style={{ color: 'rgba(52,211,153,0.75)', fontSize: 12, fontWeight: 600 }}>※ 모든 금액은 부가세(VAT 10%) 포함 기준입니다.</span>
-            </p>
-          </div>
-
-          {/* 용량 기준 자동 추산 (계약 용량·전압 종별 변경 시 자동 반영) */}
-          <div style={{ marginBottom: 14, padding: '11px 14px 13px', borderRadius: 8, background: 'rgba(52,211,153,0.07)', border: '1px solid rgba(52,211,153,0.22)' }}>
-            <p style={{ fontSize: 13, fontWeight: 700, color: 'rgba(52,211,153,0.90)', marginBottom: 5 }}>
-              총 계약 용량 {totalKw}kW · {isLowVoltage ? '저압' : '고압'} 기준 추산 (안내용)
-            </p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-              {estKepco > 0 && (
-                <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.60)' }}>
-                  한전 시설부담금: {estKepco.toLocaleString()}원 <span style={{ color: 'rgba(52,211,153,0.60)' }}>(부가세 포함)</span>
-                  {estKepcoDistance > 0 && ` (기본 ${estKepcoBase.toLocaleString()} + 거리 ${estKepcoDistance.toLocaleString()})`}
-                </p>
-              )}
-              {estSafety > 0 && <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.60)' }}>사용전검사·안전관리·감리: {estSafety.toLocaleString()}원 <span style={{ color: 'rgba(52,211,153,0.60)' }}>(부가세 포함)</span></p>}
-              {estElecSafety > 0 && <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.60)' }}>전기안전관리대행비: {estElecSafety.toLocaleString()}원/월 <span style={{ color: 'rgba(52,211,153,0.60)' }}>(부가세 포함)</span></p>}
-              {insuranceNote
-                ? <p style={{ fontSize: 12, color: 'rgba(248,113,113,0.70)' }}>보험료: {insuranceNote}</p>
-                : <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.60)' }}>충전시설 배상책임보험: {estInsurance.toLocaleString()}원/년 ({totalCount}대 기준) <span style={{ color: 'rgba(255,255,255,0.35)' }}>(부가세 면세)</span></p>
-              }
-              {estKepco === 0 && estSafety === 0 && estElecSafety === 0 && (
-                <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)' }}>충전기 구성을 입력하면 추산이 표시됩니다</p>
-              )}
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10 }}>
-              <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.55)', whiteSpace: 'nowrap' }}>한전 신설 인입거리</span>
-              <input type="number" min={0} step={10} value={params.kepco_line_distance_m || 0}
-                onChange={e => setParams({ kepco_line_distance_m: Math.max(0, Number(e.target.value) || 0) })}
-                style={{ width: 70, padding: '4px 7px', borderRadius: 5, fontSize: 12, background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff' }}/>
-              <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.55)' }}>m (기본거리 200m 초과분만 부담금 발생)</span>
-            </div>
-            <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.30)', marginTop: 7 }}>
-              한전 기본시설부담금·거리시설부담금(공중 포설·3상 기준)·사용전검사·전기감리·전기안전관리대행 요율표를 반영한 추산값이며, 계약 용량·전압 종별·인입거리가 바뀌면 아래 입력값에 자동 반영됩니다.
-              지중 포설, 단상 계약, 첨가거리공사는 반영되지 않았습니다. <strong style={{ color: 'rgba(255,255,255,0.45)' }}>현장 상황과 시공·대행 업체에 따라 실제 금액은 상이할 수 있으니 참고용으로만 활용하고 직접 수정해 주세요.</strong>
-            </p>
-          </div>
-
-          {/* ── 초기 1회 발생 비용 ── */}
-          <div style={{ padding: '14px 14px 16px', borderRadius: 10, background: 'rgba(255,255,255,0.06)', marginBottom: 14 }}>
-            <p style={{ color: 'rgba(255,255,255,0.50)', fontSize: 12, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 4 }}>초기 1회 발생 비용</p>
-            <p style={{ color: 'rgba(255,255,255,0.40)', fontSize: 12, marginBottom: 14 }}>아래 비용은 초기 투자비에 합산됩니다.</p>
-
-            {/* 한전 시설부담금 */}
-            <div style={{ marginBottom: 14, padding: '12px 12px 14px', borderRadius: 8, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-                <span style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.85)' }}>한전 시설부담금</span>
-                <span style={{ fontSize: 11, color: 'rgba(255,200,100,0.70)', background: 'rgba(255,200,100,0.10)', borderRadius: 4, padding: '2px 7px' }}>저압 신청 시</span>
-              </div>
-              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.55)', lineHeight: 1.7, marginBottom: 10 }}>
-                한전에 전기공급 신청 시 발생하는 비용(기본시설부담금 + 거리시설부담금). 저압 5kW까지 336,600원 + 초과분 133,100원/kW, 고압 26,400원/kW (공중 포설 기준). 인입거리가 기본거리(공중 200m)를 넘으면 초과 1m당 58,300원이 가산됩니다. 지중 포설·단상 계약은 별도 산정. 세금계산서 발행. <strong style={{ color: 'rgba(52,211,153,0.85)' }}>부가세(10%) 포함 금액입니다.</strong>
-              </p>
-              <SLabel ch="한전 시설부담금 (원)"/>
-              <SNum value={params.cost_kepco_burden ?? 0} onChange={v => setParams({ cost_kepco_burden: v })} step={100000} min={0}/>
-              {(params.cost_kepco_burden ?? 0) > 0 && <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', marginTop: 4, fontVariantNumeric: 'tabular-nums' }}>{(params.cost_kepco_burden ?? 0).toLocaleString()}원</p>}
-            </div>
-
-            {/* 사용전검사 / 안전관리자 / 감리 */}
-            <div style={{ padding: '12px 12px 14px', borderRadius: 8, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-                <span style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.85)' }}>사용전검사 · 안전관리자 · 감리비</span>
-                <span style={{ fontSize: 11, color: 'rgba(248,113,113,0.80)', background: 'rgba(248,113,113,0.10)', borderRadius: 4, padding: '2px 7px' }}>75kW 이상</span>
-              </div>
-              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.55)', lineHeight: 1.75, marginBottom: 10 }}>
-                총 설치 용량 75kW 이상 시 한전 사용전검사 및 전기감리 의무. 이에스앤에이치(ES&amp;H) 등 대행업체에서 일괄 처리. <strong style={{ color: 'rgba(52,211,153,0.85)' }}>부가세(10%) 포함 금액입니다.</strong><br/>
-                <span style={{ color: 'rgba(255,255,255,0.65)' }}>사용전검사 수수료 (한국전기안전공사 2026년도 요율, VAT 10% 포함):</span><br/>
-                · 저압: 기본료 103,400원 + {totalKw}kW × 430원 = <strong style={{ color: 'rgba(255,255,255,0.75)' }}>{Math.round((94_000 + totalKw * 391) * 1.1).toLocaleString()}원</strong><br/>
-                · 고압 300kW이하: 기본료 327,800원 + kW당 726원<br/>
-                · 고압 300kW초과: 기본료 614,900원 + kW당 347원<br/>
-                <span style={{ color: 'rgba(255,255,255,0.65)' }}>감리비 추산 (부가세 포함):</span><br/>
-                · 75~100kW: 약 150만원 &nbsp;· 100~500kW: 약 300만원 &nbsp;· 500kW 초과: 약 500만원<br/>
-                세금계산서 발행.
-              </p>
-              <SLabel ch="사용전검사·안전관리자·감리비 합계 (원)"/>
-              <SNum value={params.cost_safety_inspection ?? 0} onChange={v => setParams({ cost_safety_inspection: v })} step={100000} min={0}/>
-              {(params.cost_safety_inspection ?? 0) > 0 && <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', marginTop: 4, fontVariantNumeric: 'tabular-nums' }}>{(params.cost_safety_inspection ?? 0).toLocaleString()}원</p>}
-            </div>
-          </div>
-
-          {/* ── 월 발생 비용 ── */}
-          <div style={{ padding: '14px 14px 16px', borderRadius: 10, background: 'rgba(255,255,255,0.06)' }}>
-            <p style={{ color: 'rgba(255,255,255,0.50)', fontSize: 12, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 4 }}>월 발생 비용</p>
-            <p style={{ color: 'rgba(255,255,255,0.40)', fontSize: 12, marginBottom: 14 }}>아래 비용은 월 총비용에 합산됩니다.</p>
-
-            {/* 전기안전관리대행비 */}
-            <div style={{ marginBottom: 14, padding: '12px 12px 14px', borderRadius: 8, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-                <span style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.85)' }}>전기안전관리대행비</span>
-                <span style={{ fontSize: 11, color: 'rgba(248,113,113,0.80)', background: 'rgba(248,113,113,0.10)', borderRadius: 4, padding: '2px 7px' }}>75kW 이상</span>
-              </div>
-              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.55)', lineHeight: 1.75, marginBottom: 10 }}>
-                전기안전관리대행업체에 매월 납부하는 의무 계약 수수료. 세금계산서 발행. <strong style={{ color: 'rgba(52,211,153,0.85)' }}>부가세(10%) 포함 금액입니다.</strong><br/>
-                <span style={{ color: 'rgba(255,255,255,0.65)' }}>월 수수료 (한국전기안전공사 2026년도 요율, VAT 10% 포함):</span><br/>
-                {isLowVoltage ? <>
-                  · 저압 50kW이하: 104,390원 &nbsp;· 50~100kW: 119,350원<br/>
-                  · 100~200kW: 136,070원 &nbsp;· 200~300kW: 155,650원<br/>
-                  · 300~400kW: 237,710원 &nbsp;· 400kW초과: 285,120원<br/>
-                  · 현재 {totalKw}kW({isLowVoltage ? '저압' : '고압'}) → <strong style={{ color: 'rgba(255,255,255,0.80)' }}>월 {(totalKw < 75 ? 0 : estElecSafety).toLocaleString()}원</strong>
-                </> : <>
-                  · 고압 100kW이하: 147,510원 &nbsp;· 100~200kW: 182,710원<br/>
-                  · 200~300kW: 202,730원 &nbsp;· 300~400kW: 296,780원<br/>
-                  · 400~500kW: 351,120원 &nbsp;· 500~600kW: 464,090원 이상<br/>
-                  · 현재 {totalKw}kW({isLowVoltage ? '저압' : '고압'}) → <strong style={{ color: 'rgba(255,255,255,0.80)' }}>월 {(totalKw < 75 ? 0 : estElecSafety).toLocaleString()}원</strong>
-                </>}
-              </p>
-              <SLabel ch="전기안전관리대행비 (원/월)"/>
-              <SNum value={params.monthly_elec_safety ?? 0} onChange={v => setParams({ monthly_elec_safety: v })} step={10000} min={0}/>
-              {(params.monthly_elec_safety ?? 0) > 0 && <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', marginTop: 4, fontVariantNumeric: 'tabular-nums' }}>{(params.monthly_elec_safety ?? 0).toLocaleString()}원/월</p>}
-            </div>
-
-            {/* 충전시설 사고배상책임보험 */}
-            <div style={{ padding: '12px 12px 14px', borderRadius: 8, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-                <span style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.85)' }}>충전시설 사고배상책임보험</span>
-                <span style={{ fontSize: 11, color: 'rgba(52,211,153,0.80)', background: 'rgba(52,211,153,0.10)', borderRadius: 4, padding: '2px 7px' }}>연간 입력</span>
-              </div>
-              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.55)', lineHeight: 1.75, marginBottom: 10 }}>
-                EV 충전시설 화재·감전 등 사고 발생 시 제3자 손해를 보상하는 배상책임보험. 1년 단위 갱신. 연간 보험료를 입력하세요. <strong style={{ color: 'rgba(255,200,100,0.80)' }}>보험료는 부가세 면세 항목입니다.</strong><br/>
-                <span style={{ color: 'rgba(255,255,255,0.65)' }}>충전기 대수별 연간 보험료 기준:</span><br/>
-                · 1~5대: 20,000원 &nbsp;· 6~8대: 30,000원 &nbsp;· 9~10대: 40,000원<br/>
-                · 11~15대: 50,000원 &nbsp;· 16~18대: 60,000원 &nbsp;· 19~20대: 70,000원<br/>
-                · 21대 이상: 별도 확인 필요
-              </p>
-              {insuranceNote && (
-                <p style={{ fontSize: 12, color: 'rgba(248,113,113,0.80)', marginBottom: 8, fontWeight: 600 }}>⚠ {insuranceNote}</p>
-              )}
-              <SLabel ch="연간 보험료 (원/년)"/>
-              <SNum value={params.insurance_yearly ?? 0} onChange={v => setParams({ insurance_yearly: v })} step={10000} min={0}/>
-              {(params.insurance_yearly ?? 0) > 0 && <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', marginTop: 4, fontVariantNumeric: 'tabular-nums' }}>{(params.insurance_yearly ?? 0).toLocaleString()}원/년</p>}
-            </div>
-          </div>
-
-          {/* 추가 안내 */}
-          <div style={{ marginTop: 14, padding: '12px 14px', borderRadius: 8, background: 'rgba(255,200,100,0.07)', border: '1px solid rgba(255,200,100,0.20)' }}>
-            <p style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,200,100,0.80)', marginBottom: 10, letterSpacing: '0.05em', textTransform: 'uppercase' }}>⚠ 추가 비용 안내</p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.65)', lineHeight: 1.7 }}>
-                · <strong style={{ color: 'rgba(255,200,100,0.85)' }}>자가용설비 정기검사</strong> — 전기안전관리법 제65조에 따라 자가용 전기설비는 주기적으로 정기검사를 받아야 합니다. 검사 주기 및 수수료는 설비 용량과 종류에 따라 다르며, 별도 비용이 발생할 수 있습니다.
-              </p>
-              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.65)', lineHeight: 1.7 }}>
-                · <strong style={{ color: 'rgba(255,200,100,0.85)' }}>법령 변경에 따른 추가 비용</strong> — 전기안전관리법, 전기사업법, 환경부 충전인프라 관련 고시 등 관련 법령의 개정에 따라 안전관리 의무, 수수료 요율, 검사 기준 등이 변경될 수 있으며, 이에 따른 추가 비용이 발생할 수 있습니다.
-              </p>
-              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginTop: 2 }}>
-                위 항목들은 현장 상황 및 법령 시행 시기에 따라 달라질 수 있으므로 설치 전 담당 기관에 확인하시기 바랍니다.
-              </p>
-            </div>
-          </div>
-
-        </Modal>
+        <ExtraCostsModal
+          params={params}
+          setParams={setParams}
+          onClose={() => setActiveModal(null)}
+          onReset={() => { const d = gd(); setParams({ cost_kepco_burden: d.cost_kepco_burden ?? 0, cost_safety_inspection: d.cost_safety_inspection ?? 0, monthly_elec_safety: d.monthly_elec_safety ?? 0, insurance_yearly: d.insurance_yearly ?? 0 }) }}
+          totalKw={totalKw}
+          totalCount={totalCount}
+          isLowVoltage={isLowVoltage}
+          estKepco={estKepco}
+          estKepcoBase={estKepcoBase}
+          estKepcoDistance={estKepcoDistance}
+          estSafety={estSafety}
+          estElecSafety={estElecSafety}
+          estInsurance={estInsurance}
+          insuranceNote={insuranceNote}
+        />
       )}
 
       {/* ⑥ 충전량 참고 */}
