@@ -17,7 +17,7 @@ export function runSimulation(p: SimParams): SimResult {
     ? totalInitCost / instMonths
     : 0
 
-  const managerDiscount = p.manager_name ? (p.manager_discount ?? 0) : 0
+  const managerDiscount = p.manager_name ? (p.manager_discount ?? 0) * totalCount : 0
   // 할인율은 충전기 비용에만 적용, 외부 고정비는 전액 반영
   const discountedInitCost = isInstallment
     ? totalInitCost

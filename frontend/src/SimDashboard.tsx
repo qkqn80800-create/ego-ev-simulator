@@ -1378,13 +1378,17 @@ function SettingsSidebar({ params, setParams, collapsed, setCollapsed, firstRec,
                   <button onClick={() => { setManagerConfirmed(false); if (managerInputRef.current) managerInputRef.current.value = ''; setParams({ manager_name: '', manager_discount: 0 }) }}
                     style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.40)', fontSize: 12, cursor: 'pointer', padding: '2px 8px', textDecoration: 'underline' }}>변경</button>
                 </div>
-                <SLabel ch="추가 할인 금액 (원)"/>
+                <SLabel ch="충전기당 할인 금액 (원/대)"/>
                 <SNum value={params.manager_discount} onChange={v => setParams({ manager_discount: v })} step={10000}/>
-                {params.manager_discount > 0 && (
-                  <p style={{ color: '#FB923C', fontSize: 11, marginTop: 8, fontWeight: 600 }}>
-                    할인 {params.manager_discount.toLocaleString()}원 적용 → 실투자 {(params.cost_charger_unit * params.charger_configs.reduce((s,c)=>s+c.count,0) + params.cost_installation - params.manager_discount).toLocaleString()}원
-                  </p>
-                )}
+                {(() => {
+                  const cnt = params.charger_configs.reduce((s,c) => s + c.count, 0)
+                  const total = params.manager_discount * cnt
+                  return total > 0 ? (
+                    <p style={{ color: '#FB923C', fontSize: 11, marginTop: 8, fontWeight: 600 }}>
+                      {params.manager_discount.toLocaleString()}원/대 × {cnt}대 = 총 <strong>{total.toLocaleString()}원</strong> 할인 적용
+                    </p>
+                  ) : null
+                })()}
               </>
             )}
           </div>}
