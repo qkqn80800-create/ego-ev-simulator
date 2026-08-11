@@ -315,9 +315,18 @@ function Modal({ title, onClose, onReset, children, width }: {
 // ── 관리자 기본값 업데이트 모달 ──────────────────────────────
 const DEFAULTS_KEY = 'sim_global_defaults'
 type ChargerTypeEntry = { label: string; kw: number; default_rate: number; default_cost_unit: number; default_cost_install: number; default_monthly_ops: number }
+type CompanyEntry = { id: string; name: string; managers: string[] }
 type GlobalDefaults = Partial<SimParams> & {
   vkw_presets?: { label: string; kwh: number }[]
   custom_charger_types?: ChargerTypeEntry[]
+  companies?: CompanyEntry[]
+}
+function loadCompanies(): CompanyEntry[] {
+  return loadGlobalDefaults().companies ?? []
+}
+function isRegisteredManager(name: string): boolean {
+  const companies = loadCompanies()
+  return companies.some(c => c.managers.some(m => m.trim() === name.trim()))
 }
 const BASE_CHARGER_TYPES: ChargerTypeEntry[] = [
   { label: '완속 7kW',     kw: 7,   default_rate: 320, default_cost_unit: 1_100_000,  default_cost_install: 3_300_000,  default_monthly_ops: 33_000 },
@@ -349,14 +358,17 @@ function GlobalUpdateModal({ params, setParams, pwd, setPwd, pwdErr, setPwdErr, 
   correctPwd: string; onClose: () => void
   onSaved: (chargerTypes: ChargerTypeEntry[], vkwPresets: { label: string; kwh: number }[]) => void
 }) {
-  const [tab, setTab] = useState<'charger' | 'cost' | 'period' | 'elec'>('charger')
+  const [tab, setTab] = useState<'charger' | 'cost' | 'period' | 'elec' | 'managers'>('charger')
   const [draft, setDraft] = useState<GlobalDefaults>({})
   const [vkwDraft, setVkwDraft] = useState<{ label: string; kwh: number }[]>(loadVkwPresets())
   const [ctDraft, setCtDraft] = useState<ChargerTypeEntry[]>(loadChargerTypes)
+  const [companiesDraft, setCompaniesDraft] = useState<CompanyEntry[]>(loadCompanies)
+  const [newCompanyName, setNewCompanyName] = useState('')
+  const [newManagerInputs, setNewManagerInputs] = useState<Record<string, string>>({})
   const updDraft = (p: Partial<SimParams>) => setDraft(prev => ({ ...prev, ...p }))
 
   const merged: SimParams = { ...params, ...draft }
-  const sectionLabel = { charger: '① 충전기 구성', cost: '② 비용 설정', period: '③ 기간·성장률', elec: '④ 고객 직접 납부' }
+  const sectionLabel = { charger: '① 충전기 구성', cost: '② 비용 설정', period: '③ 기간·성장률', elec: '④ 고객 직접 납부', managers: '⑤ 담당자 관리' }
   const tabs = Object.keys(sectionLabel) as (keyof typeof sectionLabel)[]
 
   const handleSave = () => {
@@ -381,7 +393,7 @@ function GlobalUpdateModal({ params, setParams, pwd, setPwd, pwdErr, setPwdErr, 
       // 3) 그래도 없으면 첫 번째 타입으로 대체
       return ctDraft[0] ? applyType(c, ctDraft[0]) : c
     })
-    saveGlobalDefaults({ ...existing, ...draft, charger_configs: syncedConfigs, vkw_presets: vkwDraft, custom_charger_types: ctDraft })
+    saveGlobalDefaults({ ...existing, ...draft, charger_configs: syncedConfigs, vkw_presets: vkwDraft, custom_charger_types: ctDraft, companies: companiesDraft })
     setParams({ ...draft, charger_configs: syncedConfigs })
     onSaved(ctDraft, vkwDraft)
     onClose()
@@ -557,6 +569,92 @@ function GlobalUpdateModal({ params, setParams, pwd, setPwd, pwdErr, setPwdErr, 
         </div>
       )}
 
+      {tab === 'managers' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.40)', lineHeight: 1.6 }}>업체를 등록하고 각 업체별 담당자를 추가하세요. 등록된 담당자만 시뮬레이터의 담당자 확인 기능을 사용할 수 있습니다.</p>
+          {/* 업체 추가 */}
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input
+              type="text"
+              value={newCompanyName}
+              onChange={e => setNewCompanyName(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' && newCompanyName.trim()) {
+                  setCompaniesDraft(prev => [...prev, { id: Date.now().toString(), name: newCompanyName.trim(), managers: [] }])
+                  setNewCompanyName('')
+                }
+              }}
+              placeholder="업체명 입력"
+              style={{ flex: 1, padding: '8px 10px', borderRadius: 7, background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.18)', color: 'white', fontSize: 13, outline: 'none' }}
+            />
+            <button
+              onClick={() => {
+                if (!newCompanyName.trim()) return
+                setCompaniesDraft(prev => [...prev, { id: Date.now().toString(), name: newCompanyName.trim(), managers: [] }])
+                setNewCompanyName('')
+              }}
+              style={{ padding: '8px 14px', borderRadius: 7, border: 'none', cursor: 'pointer', background: 'rgba(167,139,250,0.25)', color: 'rgba(167,139,250,0.95)', fontWeight: 700, fontSize: 12 }}
+            >+ 업체 추가</button>
+          </div>
+          {companiesDraft.length === 0 && (
+            <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.25)', textAlign: 'center', padding: '20px 0' }}>등록된 업체가 없습니다.</p>
+          )}
+          {companiesDraft.map(company => (
+            <div key={company.id} style={{ padding: '12px', borderRadius: 8, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.10)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                <p style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.85)' }}>🏢 {company.name}</p>
+                <button
+                  onClick={() => setCompaniesDraft(prev => prev.filter(c => c.id !== company.id))}
+                  style={{ background: 'rgba(248,113,113,0.15)', border: '1px solid rgba(248,113,113,0.35)', color: '#f87171', fontSize: 10, padding: '3px 8px', borderRadius: 5, cursor: 'pointer' }}
+                >삭제</button>
+              </div>
+              {/* 담당자 목록 */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 8 }}>
+                {company.managers.length === 0 && (
+                  <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)' }}>담당자가 없습니다.</p>
+                )}
+                {company.managers.map((mgr, mi) => (
+                  <div key={mi} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 10px', borderRadius: 6, background: 'rgba(255,200,100,0.07)', border: '1px solid rgba(255,200,100,0.18)' }}>
+                    <span style={{ fontSize: 12, color: 'rgba(255,200,100,0.85)' }}>👤 {mgr}</span>
+                    <button
+                      onClick={() => setCompaniesDraft(prev => prev.map(c => c.id === company.id ? { ...c, managers: c.managers.filter((_, i) => i !== mi) } : c))}
+                      style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.35)', fontSize: 11, cursor: 'pointer', padding: '0 4px' }}
+                    >✕</button>
+                  </div>
+                ))}
+              </div>
+              {/* 담당자 추가 */}
+              <div style={{ display: 'flex', gap: 6 }}>
+                <input
+                  type="text"
+                  value={newManagerInputs[company.id] ?? ''}
+                  onChange={e => setNewManagerInputs(prev => ({ ...prev, [company.id]: e.target.value }))}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      const name = (newManagerInputs[company.id] ?? '').trim()
+                      if (!name) return
+                      setCompaniesDraft(prev => prev.map(c => c.id === company.id ? { ...c, managers: [...c.managers, name] } : c))
+                      setNewManagerInputs(prev => ({ ...prev, [company.id]: '' }))
+                    }
+                  }}
+                  placeholder="담당자 이름"
+                  style={{ flex: 1, padding: '6px 9px', borderRadius: 6, background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.15)', color: 'white', fontSize: 12, outline: 'none' }}
+                />
+                <button
+                  onClick={() => {
+                    const name = (newManagerInputs[company.id] ?? '').trim()
+                    if (!name) return
+                    setCompaniesDraft(prev => prev.map(c => c.id === company.id ? { ...c, managers: [...c.managers, name] } : c))
+                    setNewManagerInputs(prev => ({ ...prev, [company.id]: '' }))
+                  }}
+                  style={{ padding: '6px 12px', borderRadius: 6, border: 'none', cursor: 'pointer', background: 'rgba(255,200,100,0.20)', color: 'rgba(255,200,100,0.90)', fontWeight: 700, fontSize: 11 }}
+                >+ 추가</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       <div style={{ display: 'flex', gap: 8, marginTop: 20 }}>
         <button onClick={onClose} style={{
           flex: 1, padding: '10px 0', borderRadius: 8, fontSize: 13, cursor: 'pointer',
@@ -718,6 +816,21 @@ function SettingsSidebar({ params, setParams, collapsed, setCollapsed, firstRec,
   const gd = () => loadGlobalDefaults()
   const managerInputRef = useRef<HTMLInputElement>(null)
   const [managerConfirmed, setManagerConfirmed] = useState(false)
+  const [managerNotFound, setManagerNotFound] = useState(false)
+
+  const confirmManager = () => {
+    const name = managerInputRef.current?.value.trim()
+    if (!name) return
+    const companies = loadCompanies()
+    const hasAnyManagers = companies.some(c => c.managers.length > 0)
+    if (hasAnyManagers && !isRegisteredManager(name)) {
+      setManagerNotFound(true)
+      return
+    }
+    setManagerNotFound(false)
+    setParams({ manager_name: name, manager_discount: 0 })
+    setManagerConfirmed(true)
+  }
 
   const changeNumTypes = (n: number) => {
     setNumTypes(n)
@@ -1397,6 +1510,18 @@ function SettingsSidebar({ params, setParams, collapsed, setCollapsed, firstRec,
             </div>
           </div>
           {/* 담당자 확인 — 일시불일 때만 표시 */}
+          {/* 담당자 미등록 팝업 */}
+          {managerNotFound && (
+            <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.55)' }}
+              onClick={() => setManagerNotFound(false)}>
+              <div onClick={e => e.stopPropagation()} style={{ background: '#1e1b4b', border: '1px solid rgba(248,113,113,0.45)', borderRadius: 14, padding: '28px 32px', maxWidth: 320, textAlign: 'center', boxShadow: '0 8px 40px rgba(0,0,0,0.6)' }}>
+                <p style={{ fontSize: 28, marginBottom: 10 }}>⚠️</p>
+                <p style={{ fontSize: 15, fontWeight: 700, color: 'white', marginBottom: 8 }}>등록되지 않은 담당자입니다</p>
+                <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.55)', lineHeight: 1.6, marginBottom: 20 }}>입력하신 이름이 담당자 목록에 없습니다.<br/>관리자에게 담당자 등록을 요청하세요.</p>
+                <button onClick={() => setManagerNotFound(false)} style={{ padding: '9px 28px', borderRadius: 8, border: 'none', cursor: 'pointer', background: '#f87171', color: 'white', fontWeight: 700, fontSize: 13 }}>확인</button>
+              </div>
+            </div>
+          )}
           {params.payment_type === '일시불' && <div style={{ padding: '14px 14px 16px', borderRadius: 10, background: 'rgba(255,200,100,0.08)', border: `1px solid ${managerConfirmed ? 'rgba(255,200,100,0.50)' : 'rgba(255,200,100,0.20)'}` }}>
             <p style={{ color: 'rgba(255,200,100,0.70)', fontSize: 10, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 12 }}>🔑 담당자 확인</p>
             {!managerConfirmed ? (
@@ -1406,11 +1531,9 @@ function SettingsSidebar({ params, setParams, collapsed, setCollapsed, firstRec,
                   <input
                     ref={managerInputRef}
                     defaultValue=""
+                    onChange={() => setManagerNotFound(false)}
                     onKeyDown={e => {
-                      if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
-                        const name = managerInputRef.current?.value.trim()
-                        if (name) { setParams({ manager_name: name, manager_discount: 0 }); setManagerConfirmed(true) }
-                      }
+                      if (e.key === 'Enter' && !e.nativeEvent.isComposing) confirmManager()
                     }}
                     placeholder="담당자 이름 입력"
                     autoComplete="off"
@@ -1418,15 +1541,13 @@ function SettingsSidebar({ params, setParams, collapsed, setCollapsed, firstRec,
                     lang="ko"
                     style={{
                       flex: 1, boxSizing: 'border-box',
-                      background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,200,100,0.30)',
+                      background: 'rgba(255,255,255,0.10)',
+                      border: `1px solid ${managerNotFound ? 'rgba(248,113,113,0.60)' : 'rgba(255,200,100,0.30)'}`,
                       borderRadius: 8, padding: '10px 12px', color: 'white', fontSize: 16, outline: 'none',
                     }}
                   />
                   <button
-                    onClick={() => {
-                      const name = managerInputRef.current?.value.trim()
-                      if (name) { setParams({ manager_name: name, manager_discount: 0 }); setManagerConfirmed(true) }
-                    }}
+                    onClick={confirmManager}
                     style={{
                       padding: '10px 18px', borderRadius: 8, border: 'none', cursor: 'pointer',
                       background: 'rgba(255,200,100,0.80)', color: '#1e1560',
@@ -1439,7 +1560,7 @@ function SettingsSidebar({ params, setParams, collapsed, setCollapsed, firstRec,
               <>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
                   <span style={{ color: 'rgba(255,200,100,0.90)', fontWeight: 700, fontSize: 15 }}>👤 {params.manager_name}</span>
-                  <button onClick={() => { setManagerConfirmed(false); if (managerInputRef.current) managerInputRef.current.value = ''; setParams({ manager_name: '', manager_discount: 0 }) }}
+                  <button onClick={() => { setManagerConfirmed(false); setManagerNotFound(false); if (managerInputRef.current) managerInputRef.current.value = ''; setParams({ manager_name: '', manager_discount: 0 }) }}
                     style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.40)', fontSize: 12, cursor: 'pointer', padding: '2px 8px', textDecoration: 'underline' }}>변경</button>
                 </div>
                 <SLabel ch="충전기당 할인 금액 (원/대)"/>
