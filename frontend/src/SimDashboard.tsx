@@ -927,8 +927,12 @@ function SettingsSidebar({ params, setParams, collapsed, setCollapsed, firstRec,
                 <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.75)' }}>사용전검사 · 안전관리자 · 감리비</span>
                 <span style={{ fontSize: 10, color: 'rgba(248,113,113,0.80)', background: 'rgba(248,113,113,0.10)', borderRadius: 4, padding: '1px 6px' }}>75kW 이상</span>
               </div>
-              <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.40)', lineHeight: 1.6, marginBottom: 8 }}>
-                총 설치 용량 75kW 이상 시 한전 사용전검사 필수. 안전관리자 선임 대행 및 감리비 포함. 이에스앤에이치(ES&amp;H) 등 전기안전관리 대행업체를 통해 처리. 세금계산서 발행.
+              <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.40)', lineHeight: 1.7, marginBottom: 8 }}>
+                총 설치 용량 75kW 이상 시 한전 사용전검사 및 전기감리 의무. 이에스앤에이치(ES&amp;H) 등 대행업체에서 일괄 처리.<br/>
+                <span style={{ color: 'rgba(255,255,255,0.55)' }}>계산 방법 (용량 구간별 추산):</span><br/>
+                · 75~100kW: 사용전검사 약 15만원 + 감리 약 150만원 = <strong style={{ color: 'rgba(255,255,255,0.60)' }}>약 165만원</strong><br/>
+                · 100~500kW: 사용전검사 약 25만원 + 감리 약 300만원 = <strong style={{ color: 'rgba(255,255,255,0.60)' }}>약 325만원</strong><br/>
+                · 500kW 초과: 별도 협의. 세금계산서 발행.
               </p>
               <SLabel ch="사용전검사·안전관리자·감리비 합계 (원)"/>
               <SNum value={params.cost_safety_inspection ?? 0} onChange={v => setParams({ cost_safety_inspection: v })} step={100000} min={0}/>
@@ -946,8 +950,13 @@ function SettingsSidebar({ params, setParams, collapsed, setCollapsed, firstRec,
                 <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.75)' }}>전기안전관리대행비</span>
                 <span style={{ fontSize: 10, color: 'rgba(248,113,113,0.80)', background: 'rgba(248,113,113,0.10)', borderRadius: 4, padding: '1px 6px' }}>75kW 이상</span>
               </div>
-              <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.40)', lineHeight: 1.6, marginBottom: 8 }}>
-                이에스앤에이치(ES&amp;H) 등 전기안전관리 대행업체에 매월 납부. 총 설치 용량 75kW 이상 의무 대상. 고객 직접 납부. 세금계산서 발행.
+              <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.40)', lineHeight: 1.7, marginBottom: 8 }}>
+                총 설치 용량 75kW 이상 시 전기안전관리대행업체 의무 계약. 이에스앤에이치(ES&amp;H) 등에 매월 직접 납부. 세금계산서 발행.<br/>
+                <span style={{ color: 'rgba(255,255,255,0.55)' }}>계산 방법 (용량 구간별 월 대행 요금):</span><br/>
+                · 75~100kW: <strong style={{ color: 'rgba(255,255,255,0.60)' }}>월 120,000원</strong><br/>
+                · 100~300kW: <strong style={{ color: 'rgba(255,255,255,0.60)' }}>월 150,000원</strong><br/>
+                · 300~500kW: <strong style={{ color: 'rgba(255,255,255,0.60)' }}>월 180,000원</strong><br/>
+                · 500kW 초과: 월 250,000원~ (업체별 협의)
               </p>
               <SLabel ch="전기안전관리대행비 (원/월)"/>
               <SNum value={params.monthly_elec_safety ?? 0} onChange={v => setParams({ monthly_elec_safety: v })} step={10000} min={0}/>
@@ -959,8 +968,12 @@ function SettingsSidebar({ params, setParams, collapsed, setCollapsed, firstRec,
                 <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.75)' }}>충전시설 사고배상책임보험</span>
                 <span style={{ fontSize: 10, color: 'rgba(52,211,153,0.80)', background: 'rgba(52,211,153,0.10)', borderRadius: 4, padding: '1px 6px' }}>월 환산 입력</span>
               </div>
-              <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.40)', lineHeight: 1.6, marginBottom: 8 }}>
-                EV 충전시설 화재·감전 등 사고 발생 시 제3자 손해를 보상하는 배상책임보험. 연간 보험료를 12로 나눈 월 환산액을 입력하세요.
+              <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.40)', lineHeight: 1.7, marginBottom: 8 }}>
+                EV 충전시설 화재·감전 등 사고 발생 시 제3자 손해를 보상하는 배상책임보험.<br/>
+                <span style={{ color: 'rgba(255,255,255,0.55)' }}>계산 방법:</span><br/>
+                · 연간 보험료 ÷ 12 = 월 환산액 입력<br/>
+                · 보험료 수준: 충전기 대수·용량 및 보험사에 따라 상이. 통상 연 20~60만원 내외.<br/>
+                · 예) 연 360,000원 → 월 30,000원 입력
               </p>
               <SLabel ch="보험료 (원/월)"/>
               <SNum value={params.monthly_insurance ?? 0} onChange={v => setParams({ monthly_insurance: v })} step={1000} min={0}/>
