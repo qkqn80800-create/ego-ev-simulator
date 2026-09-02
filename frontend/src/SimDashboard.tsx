@@ -4320,7 +4320,7 @@ function MainContent({ params, setParams, onResult, isMobile = false, scrollCont
             type BepRow = {
               label: string; kw: number; count: number; rate: number
               revenuePerKwh: number; costPerKwh: number; marginPerKwh: number
-              monthlyFixed: number; bepKwhMonth: number; bepKwhDay: number
+              monthlyFixed: number; monthlyInitAmort: number; bepKwhMonth: number; bepKwhDay: number
               bepHoursDay: number; utilizationPct: number
             }
 
@@ -4334,11 +4334,16 @@ function MainContent({ params, setParams, onResult, isMobile = false, scrollCont
 
               // 월 고정비용 (해당 충전기 비율로 안분)
               const ratio = totalCount > 0 ? cfg.count / totalCount : 1
+              // 초기 투자비용 월 할당 = (충전기단가+설치비)*대수 + (기타초기+한전부담금+사용전검사)*비율 / 운영개월수
+              const initCostThis = (cfg.cost_unit ?? params.cost_charger_unit) * cfg.count + (cfg.cost_install ?? params.cost_installation) * cfg.count
+              const initCostShared = (params.cost_other_init + params.cost_kepco_burden + params.cost_safety_inspection) * ratio
+              const monthlyInitAmort = (initCostThis + initCostShared) / params.operation_months
               const monthlyFixed =
                 (params.monthly_ops + params.monthly_as + params.monthly_comm +
                  params.monthly_elec_safety + params.monthly_other) * ratio +
                 params.elec_basic_rate * cfg.count +
-                (params.insurance_yearly / 12) * ratio
+                (params.insurance_yearly / 12) * ratio +
+                monthlyInitAmort
 
               // 손익분기 kWh (월)
               const bepKwhMonth = marginPerKwh > 0 ? monthlyFixed / marginPerKwh : Infinity
@@ -4351,7 +4356,7 @@ function MainContent({ params, setParams, onResult, isMobile = false, scrollCont
 
               return { label: cfg.label, kw: cfg.kw, count: cfg.count, rate,
                 revenuePerKwh, costPerKwh, marginPerKwh,
-                monthlyFixed, bepKwhMonth, bepKwhDay, bepHoursDay, utilizationPct }
+                monthlyFixed, monthlyInitAmort, bepKwhMonth, bepKwhDay, bepHoursDay, utilizationPct }
             })
 
             // 전체 합산
@@ -4488,6 +4493,7 @@ function MainContent({ params, setParams, onResult, isMobile = false, scrollCont
                           { label: '기타비용', val: params.monthly_other },
                           { label: '전기 기본료', val: params.elec_basic_rate * totalCount },
                           { label: '보험료(월환산)', val: Math.round(params.insurance_yearly / 12) },
+                          { label: `초기투자 월할당(÷${params.operation_months}개월)`, val: Math.round(rows.reduce((s,r)=>s+r.monthlyInitAmort,0)) },
                         ].filter(x => x.val > 0).map((x, i) => (
                           <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid #f0f0f0', color: '#374151' }}>
                             <span>{x.label}</span>
