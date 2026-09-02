@@ -4410,6 +4410,66 @@ function MainContent({ params, setParams, onResult, isMobile = false, scrollCont
                   ))}
                 </div>
 
+                {/* 수익 목표별 필요 충전량 */}
+                <div style={cardStyle}>
+                  <div style={secTitle}>수익 목표별 필요 충전량 (전체 합산)</div>
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                      <thead>
+                        <tr style={{ background: '#f9fafb' }}>
+                          {['목표 수익률', '월 목표 수익금', '하루 필요 충전량', '월 필요 충전량', '가동 시간/일', '이용률'].map(h => (
+                            <th key={h} style={{ padding: '10px 14px', textAlign: 'center', fontSize: 12, color: '#6b7280', fontWeight: 700, whiteSpace: 'nowrap', borderBottom: '2px solid #e5e7eb' }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {[
+                          { label: '손익분기 (0%)', pct: 0, color: '#6b7280', bg: '#f9fafb' },
+                          { label: '10% 수익',      pct: 0.10, color: '#2563eb', bg: '#eff6ff' },
+                          { label: '20% 수익',      pct: 0.20, color: '#16a34a', bg: '#f0fdf4' },
+                          { label: '30% 수익',      pct: 0.30, color: '#7c3aed', bg: '#f5f3ff' },
+                        ].map(({ label, pct, color, bg }) => {
+                          const targetMonthlyProfit = totalMonthlyFixed * pct
+                          const targetKwhMonth = avgMarginPerKwh > 0 ? (totalMonthlyFixed + targetMonthlyProfit) / avgMarginPerKwh : Infinity
+                          const targetKwhDay = targetKwhMonth / 30
+                          const targetHoursDay = totalKw > 0 ? targetKwhDay / totalKw : 0
+                          const targetUtil = totalMaxKwhDay > 0 && targetKwhDay < Infinity ? (targetKwhDay / totalMaxKwhDay) * 100 : Infinity
+                          return (
+                            <tr key={label} style={{ background: bg, borderBottom: '1px solid #e5e7eb' }}>
+                              <td style={{ padding: '12px 14px', textAlign: 'center', fontWeight: 700, color }}>{label}</td>
+                              <td style={{ padding: '12px 14px', textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: 700, color }}>
+                                {pct === 0 ? '—' : `+${Math.round(targetMonthlyProfit).toLocaleString()}원/월`}
+                              </td>
+                              <td style={{ padding: '12px 14px', textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: 800, color: targetKwhDay === Infinity ? '#dc2626' : color, fontSize: 15 }}>
+                                {targetKwhDay === Infinity ? '불가' : `${fmtKwh(targetKwhDay)} kWh`}
+                              </td>
+                              <td style={{ padding: '12px 14px', textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: '#374151' }}>
+                                {targetKwhMonth === Infinity ? '—' : `${fmtKwh(targetKwhMonth)} kWh`}
+                              </td>
+                              <td style={{ padding: '12px 14px', textAlign: 'center', color: '#6b7280' }}>
+                                {targetHoursDay >= 24 ? '24h 초과' : `${targetHoursDay.toFixed(1)}h`}
+                              </td>
+                              <td style={{ padding: '12px 14px', textAlign: 'center' }}>
+                                {targetKwhDay < Infinity && (
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center' }}>
+                                    <div style={{ width: 56, height: 6, background: '#e5e7eb', borderRadius: 3, overflow: 'hidden' }}>
+                                      <div style={{ width: `${Math.min(100, targetUtil)}%`, height: '100%', background: barColor(targetUtil), borderRadius: 3 }}/>
+                                    </div>
+                                    <span style={{ fontSize: 12, color: barColor(targetUtil), fontWeight: 700 }}>{targetUtil.toFixed(0)}%</span>
+                                  </div>
+                                )}
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 8 }}>
+                    * 수익률은 월 고정비용 대비 순이익 비율입니다. 예: 10% = 월 고정비용의 10%에 해당하는 순이익 달성
+                  </div>
+                </div>
+
                 {/* 충전기별 상세 */}
                 <div style={cardStyle}>
                   <div style={secTitle}>충전기 유형별 손익분기</div>
