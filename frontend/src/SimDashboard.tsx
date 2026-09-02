@@ -4384,6 +4384,162 @@ function MainContent({ params, setParams, onResult, isMobile = false, scrollCont
             const barColor = (pct: number) => pct <= 20 ? '#22c55e' : pct <= 50 ? '#f59e0b' : pct <= 80 ? '#f97316' : '#ef4444'
 
             const bepPrintRef = React.createRef<HTMLDivElement>()
+
+            const handleBepExcel = async () => {
+              const wb = new ExcelJS.Workbook()
+              wb.creator = 'ego EV충전소 수익 시뮬레이터'
+              wb.created = new Date()
+
+              // ── 시트1: 손익분기 요약 ──────────────────────────
+              const ws = wb.addWorksheet('손익분기 요약')
+              ws.columns = [
+                { width: 18 }, { width: 14 }, { width: 14 }, { width: 16 },
+                { width: 16 }, { width: 16 }, { width: 16 }, { width: 18 },
+              ]
+
+              const hStyle = (bg: string, fgColor = 'FFFFFFFF'): Partial<ExcelJS.Style> => ({
+                font: { bold: true, color: { argb: fgColor }, size: 11 },
+                fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: bg } },
+                alignment: { horizontal: 'center', vertical: 'middle', wrapText: true },
+                border: {
+                  bottom: { style: 'thin', color: { argb: 'FFD1D5DB' } },
+                  right: { style: 'thin', color: { argb: 'FFD1D5DB' } },
+                },
+              })
+              const cellStyle = (align: ExcelJS.Alignment['horizontal'] = 'center'): Partial<ExcelJS.Style> => ({
+                alignment: { horizontal: align, vertical: 'middle' },
+                border: { bottom: { style: 'thin', color: { argb: 'FFF3F4F6' } }, right: { style: 'thin', color: { argb: 'FFF3F4F6' } } },
+              })
+              const numFmt = (v: number, decimals = 1) =>
+                v === Infinity ? '불가' : v.toLocaleString('ko-KR', { maximumFractionDigits: decimals, minimumFractionDigits: decimals })
+
+              // 제목
+              ws.mergeCells('A1:H1')
+              const titleCell = ws.getCell('A1')
+              titleCell.value = '⚡ 손익분기 kWh 분석'
+              titleCell.style = { font: { bold: true, size: 14, color: { argb: 'FF6D28D9' } }, alignment: { horizontal: 'center', vertical: 'middle' } }
+              ws.getRow(1).height = 28
+
+              ws.mergeCells('A2:H2')
+              ws.getCell('A2').value = `${configs.map(c => `${c.label} ${c.count}대`).join(' · ')} | 운영기간 ${params.operation_months}개월 | 작성일: ${new Date().toLocaleDateString('ko-KR')}`
+              ws.getCell('A2').style = { font: { size: 10, color: { argb: 'FF6B7280' } }, alignment: { horizontal: 'center' } }
+              ws.getRow(2).height = 18
+
+              ws.addRow([]) // 빈행
+
+              // ── 전체 합산 KPI ──
+              ws.mergeCells('A4:H4')
+              ws.getCell('A4').value = '[ 전체 합산 ]'
+              ws.getCell('A4').style = hStyle('FF6D28D9')
+              ws.getRow(4).height = 22
+
+              const kpiHeaders = ['하루 필요 충전량', '월 필요 충전량', '월 고정비용', '설비 이용률']
+              const kpiRow5 = ws.addRow(kpiHeaders)
+              kpiRow5.eachCell(cell => { cell.style = hStyle('FFE9D5FF', 'FF4B0082') })
+              ws.getRow(5).height = 20
+
+              const kpiValues = [
+                totalBepKwhDay === Infinity ? '불가' : `${numFmt(totalBepKwhDay)} kWh`,
+                totalBepKwhMonth === Infinity ? '불가' : `${numFmt(totalBepKwhMonth)} kWh`,
+                `${(totalMonthlyFixed / 10000).toFixed(1)}만원`,
+                totalUtilization === Infinity || totalMaxKwhDay === 0 ? '불가' : `${numFmt(totalUtilization)}%`,
+              ]
+              const kpiRow6 = ws.addRow(kpiValues)
+              kpiRow6.eachCell(cell => { cell.style = { ...cellStyle(), font: { bold: true, size: 12, color: { argb: 'FF6D28D9' } } } })
+              ws.getRow(6).height = 22
+
+              ws.addRow([]) // 빈행
+
+              // ── 충전기 유형별 상세 ──
+              ws.mergeCells('A8:H8')
+              ws.getCell('A8').value = '[ 충전기 유형별 손익분기 ]'
+              ws.getCell('A8').style = hStyle('FF4338CA')
+              ws.getRow(8).height = 22
+
+              const detailHeaders = ['충전기 유형', '용량(kW)', '대수', '충전단가(원/kWh)', 'kWh당 순이익(원)', '월 고정비용(원)', '월 손익분기(kWh)', '일 손익분기(kWh)']
+              const hRow = ws.addRow(detailHeaders)
+              hRow.eachCell(cell => { cell.style = hStyle('FFE0E7FF', 'FF1E1B4B') })
+              ws.getRow(9).height = 20
+
+              rows.forEach((r, i) => {
+                const row = ws.addRow([
+                  r.label, r.kw, r.count, r.rate,
+                  r.marginPerKwh === Infinity ? '불가' : Math.round(r.marginPerKwh * 10) / 10,
+                  Math.round(r.monthlyFixed),
+                  r.bepKwhMonth === Infinity ? '불가' : Math.round(r.bepKwhMonth * 10) / 10,
+                  r.bepKwhDay === Infinity ? '불가' : Math.round(r.bepKwhDay * 10) / 10,
+                ])
+                const bg = i % 2 === 0 ? 'FFFFFFFF' : 'FFF9F8FF'
+                row.eachCell(cell => { cell.style = { ...cellStyle(), fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: bg } } } })
+                ws.getRow(9 + 1 + i).height = 18
+              })
+
+              ws.addRow([]) // 빈행
+
+              // ── 수익 목표별 필요 충전량 ──
+              const profitTargetRow = 10 + rows.length + 1
+              ws.mergeCells(`A${profitTargetRow}:H${profitTargetRow}`)
+              ws.getCell(`A${profitTargetRow}`).value = '[ 수익 목표별 필요 충전량 ]'
+              ws.getCell(`A${profitTargetRow}`).style = hStyle('FF059669')
+              ws.getRow(profitTargetRow).height = 22
+
+              const profitHRow = ws.addRow(['수익 목표', '월 목표 수익(원)', '월 필요 충전량(kWh)', '일 필요 충전량(kWh)'])
+              profitHRow.eachCell(cell => { cell.style = hStyle('FFD1FAE5', 'FF065F46') })
+              ws.getRow(profitTargetRow + 1).height = 20
+
+              const profitTargets = [0, 10, 20, 30]
+              profitTargets.forEach((pct, i) => {
+                const targetMonthlyProfit = totalMonthlyFixed * pct / 100
+                const targetKwhMonth = avgMarginPerKwh > 0 ? (totalMonthlyFixed + targetMonthlyProfit) / avgMarginPerKwh : Infinity
+                const targetKwhDay = targetKwhMonth / 30
+                const row = ws.addRow([
+                  pct === 0 ? '손익분기(0%)' : `수익 ${pct}%`,
+                  pct === 0 ? '-' : Math.round(targetMonthlyProfit).toLocaleString('ko-KR'),
+                  targetKwhMonth === Infinity ? '불가' : numFmt(targetKwhMonth),
+                  targetKwhDay === Infinity ? '불가' : numFmt(targetKwhDay),
+                ])
+                const bg = pct === 0 ? 'FFFFFBEB' : i % 2 === 0 ? 'FFFFFFFF' : 'FFF0FDF4'
+                row.eachCell(cell => { cell.style = { ...cellStyle(), fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: bg } } } })
+                ws.getRow(profitTargetRow + 2 + i).height = 18
+              })
+
+              ws.addRow([])
+
+              // ── 계산 근거 ──
+              const basisRow = profitTargetRow + 7
+              ws.mergeCells(`A${basisRow}:H${basisRow}`)
+              ws.getCell(`A${basisRow}`).value = '[ 계산 근거 ]'
+              ws.getCell(`A${basisRow}`).style = hStyle('FF6B7280')
+              ws.getRow(basisRow).height = 22
+
+              const basisItems = [
+                ['충전 단가', `${configs.map(c => `${c.label} ${c.rate}원/kWh`).join(' / ')}`],
+                ['전기요금 단가', `${numFmt(elecKwhRate, 2)}원/kWh (기후환경+연료조정+부가세 포함)`],
+                ['PG 수수료', `${params.pg_fee_pct}%`],
+                ['운영사 수익 배분', `${params.revenue_share_pct}%`],
+                ['운영 기간', `${params.operation_months}개월`],
+                ['전기 기본료', `${params.elec_basic_rate.toLocaleString('ko-KR')}원/kW`],
+                ['보험료(연간)', `${(params.insurance_yearly / 10000).toFixed(0)}만원`],
+              ]
+              basisItems.forEach((item, i) => {
+                const row = ws.addRow([item[0], item[1], '', '', '', '', '', ''])
+                ws.mergeCells(`B${basisRow + 1 + i}:H${basisRow + 1 + i}`)
+                row.getCell(1).style = { ...cellStyle(), font: { bold: true, size: 10 }, fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF9FAFB' } } }
+                row.getCell(2).style = { alignment: { horizontal: 'left', vertical: 'middle' }, font: { size: 10 } }
+                ws.getRow(basisRow + 1 + i).height = 16
+              })
+
+              // 다운로드
+              const buf = await wb.xlsx.writeBuffer()
+              const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+              const url = URL.createObjectURL(blob)
+              const a = document.createElement('a')
+              a.href = url
+              a.download = `손익분기분석_${new Date().toISOString().slice(0, 10)}.xlsx`
+              a.click()
+              URL.revokeObjectURL(url)
+            }
+
             const handleBepPrint = () => {
               const el = bepPrintRef.current
               if (!el) return
@@ -4431,9 +4587,14 @@ function MainContent({ params, setParams, onResult, isMobile = false, scrollCont
                       시뮬레이션 실행 없이 현재 설정값 기준으로 즉시 계산됩니다.
                     </div>
                   </div>
-                  <button onClick={handleBepPrint} style={{ flexShrink: 0, background: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.45)', color: 'white', borderRadius: 8, padding: '8px 16px', fontSize: 13, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                    🖨️ 인쇄 / PDF
-                  </button>
+                  <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                    <button onClick={handleBepExcel} style={{ background: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.45)', color: 'white', borderRadius: 8, padding: '8px 16px', fontSize: 13, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                      📊 엑셀 다운로드
+                    </button>
+                    <button onClick={handleBepPrint} style={{ background: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.45)', color: 'white', borderRadius: 8, padding: '8px 16px', fontSize: 13, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                      🖨️ 인쇄 / PDF
+                    </button>
+                  </div>
                 </div>
 
                 {/* 인쇄 영역 시작 */}
