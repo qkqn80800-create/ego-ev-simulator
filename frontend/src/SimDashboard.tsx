@@ -4341,7 +4341,7 @@ function MainContent({ params, setParams, onResult, isMobile = false, scrollCont
               const monthlyFixed =
                 (params.monthly_ops + params.monthly_as + params.monthly_comm +
                  params.monthly_elec_safety + params.monthly_other) * ratio +
-                params.elec_basic_rate * cfg.count +
+                params.elec_basic_rate * cfg.kw * cfg.count +
                 (params.insurance_yearly / 12) * ratio +
                 monthlyInitAmort
 
@@ -4491,7 +4491,7 @@ function MainContent({ params, setParams, onResult, isMobile = false, scrollCont
                           { label: '통신비', val: params.monthly_comm },
                           { label: '전기안전관리대행비', val: params.monthly_elec_safety },
                           { label: '기타비용', val: params.monthly_other },
-                          { label: '전기 기본료', val: params.elec_basic_rate * totalCount },
+                          { label: `전기 기본료(${params.elec_basic_rate}원/kW × ${totalKw}kW)`, val: params.elec_basic_rate * totalKw },
                           { label: '보험료(월환산)', val: Math.round(params.insurance_yearly / 12) },
                           { label: `초기투자 월할당(÷${params.operation_months}개월)`, val: Math.round(rows.reduce((s,r)=>s+r.monthlyInitAmort,0)) },
                         ].filter(x => x.val > 0).map((x, i) => (
