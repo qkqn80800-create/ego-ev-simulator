@@ -4439,20 +4439,43 @@ function MainContent({ params, setParams, onResult, isMobile = false, scrollCont
                 {/* 인쇄 영역 시작 */}
                 <div ref={bepPrintRef}>
                 {/* 전체 합산 KPI */}
-                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4,1fr)', gap: 12, marginBottom: 20 }}>
-                  {[
-                    { label: '하루 필요 충전량', value: `${fmtKwh(totalBepKwhDay)} kWh`, sub: '전체 충전기 합산' },
-                    { label: '월 필요 충전량', value: `${fmtKwh(totalBepKwhMonth)} kWh`, sub: '하루×30일' },
-                    { label: '월 고정비용', value: `${Math.round(totalMonthlyFixed/10000).toLocaleString()}만원`, sub: '운영비+전기기본료+기타' },
-                    { label: '설비 이용률', value: totalBepKwhDay === Infinity ? '불가' : `${totalUtilization.toFixed(1)}%`, sub: '24시간 대비 필요 가동률' },
-                  ].map((k, i) => (
-                    <div key={i} style={{ ...cardStyle, textAlign: 'center' }}>
-                      <div style={kpiVal}>{k.value}</div>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: '#374151', marginTop: 6 }}>{k.label}</div>
-                      <div style={kpiLbl}>{k.sub}</div>
+                {(() => {
+                  const vkwPresets = loadVkwPresets().filter(p => p.label !== '직접입력' && p.kwh > 0)
+                  // 하루 필요량을 차량별 충전량으로 나눠 환산 (소수점 반올림)
+                  const vehicleBreakdown = totalBepKwhDay < Infinity
+                    ? vkwPresets.map(p => ({ label: p.label, count: Math.round(totalBepKwhDay / p.kwh * 10) / 10 }))
+                    : []
+                  const vehicleText = vehicleBreakdown.map(v => `${v.label} ${v.count}대`).join(' 또는 ')
+                  return (
+                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4,1fr)', gap: 12, marginBottom: 20 }}>
+                      {/* 하루 필요 충전량 — 차량 환산 포함 */}
+                      <div style={{ ...cardStyle, textAlign: 'center' }}>
+                        <div style={kpiVal}>{totalBepKwhDay === Infinity ? '불가' : `${fmtKwh(totalBepKwhDay)} kWh`}</div>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: '#374151', marginTop: 6 }}>하루 필요 충전량</div>
+                        <div style={kpiLbl}>전체 충전기 합산</div>
+                        {vehicleText && (
+                          <div style={{ marginTop: 8, padding: '5px 8px', background: '#ede9fe', borderRadius: 6, fontSize: 11, color: '#5b21b6', lineHeight: 1.5 }}>
+                            {vehicleBreakdown.map((v, i) => (
+                              <span key={i}>{i > 0 && <span style={{ color: '#a78bfa' }}> · </span>}<strong>{v.label}</strong> {v.count}대</span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      {/* 나머지 KPI */}
+                      {[
+                        { label: '월 필요 충전량', value: `${fmtKwh(totalBepKwhMonth)} kWh`, sub: '하루×30일' },
+                        { label: '월 고정비용', value: `${Math.round(totalMonthlyFixed/10000).toLocaleString()}만원`, sub: '운영비+전기기본료+기타' },
+                        { label: '설비 이용률', value: totalBepKwhDay === Infinity ? '불가' : `${totalUtilization.toFixed(1)}%`, sub: '24시간 대비 필요 가동률' },
+                      ].map((k, i) => (
+                        <div key={i} style={{ ...cardStyle, textAlign: 'center' }}>
+                          <div style={kpiVal}>{k.value}</div>
+                          <div style={{ fontSize: 12, fontWeight: 700, color: '#374151', marginTop: 6 }}>{k.label}</div>
+                          <div style={kpiLbl}>{k.sub}</div>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  )
+                })()}
 
                 {/* 수익 목표별 필요 충전량 */}
                 <div style={cardStyle}>
