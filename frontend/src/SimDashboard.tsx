@@ -1722,6 +1722,7 @@ const TABS = [
   { id: 'detail',      label: '📅 월별 데이터', mLabel: '📅 월별'   },
   { id: 'scenario',    label: '🔁 시나리오',    mLabel: '🔁 시나리오' },
   { id: 'compare',     label: '⚖️ 일시불·할부 비교', mLabel: '⚖️ 비교' },
+  { id: 'bep_kwh',     label: '⚡ 손익분기 kWh', mLabel: '⚡ BEP'   },
   { id: 'report',      label: '📋 리포트',      mLabel: '📋 리포트' },
 ]
 
@@ -4305,6 +4306,255 @@ function MainContent({ params, setParams, onResult, isMobile = false, scrollCont
           )}
 
           {/* ── 일시불·할부 비교 ── */}
+          {/* ── 손익분기 kWh 계산기 ── */}
+          {tab === 'bep_kwh' && (() => {
+            // 충전기별 정보
+            const configs = params.charger_configs
+            const totalCount = configs.reduce((s, c) => s + c.count, 0)
+            const totalKw = configs.reduce((s, c) => s + c.kw * c.count, 0)
+
+            // 전기요금 단가 (kWh당)
+            const elecKwhRate = (params.elec_kwh_rate + params.elec_climate_rate + params.elec_fuel_rate) * (1 + params.elec_fund_pct / 100) * (1 + params.elec_vat_pct / 100)
+
+            // 충전기별 손익분기 계산
+            type BepRow = {
+              label: string; kw: number; count: number; rate: number
+              revenuePerKwh: number; costPerKwh: number; marginPerKwh: number
+              monthlyFixed: number; bepKwhMonth: number; bepKwhDay: number
+              bepHoursDay: number; utilizationPct: number
+            }
+
+            const rows: BepRow[] = configs.map(cfg => {
+              // 충전 단가
+              const rate = cfg.rate
+              // kWh당 순수입 = 단가 × (1-PG%) × 운영사% - 전기요금
+              const revenuePerKwh = rate * (1 - params.pg_fee_pct / 100) * (params.revenue_share_pct / 100)
+              const costPerKwh = elecKwhRate
+              const marginPerKwh = revenuePerKwh - costPerKwh
+
+              // 월 고정비용 (해당 충전기 비율로 안분)
+              const ratio = totalCount > 0 ? cfg.count / totalCount : 1
+              const monthlyFixed =
+                (params.monthly_ops + params.monthly_as + params.monthly_comm +
+                 params.monthly_elec_safety + params.monthly_other) * ratio +
+                params.elec_basic_rate * cfg.count +
+                (params.insurance_yearly / 12) * ratio
+
+              // 손익분기 kWh (월)
+              const bepKwhMonth = marginPerKwh > 0 ? monthlyFixed / marginPerKwh : Infinity
+              const bepKwhDay = bepKwhMonth / 30
+
+              // 충전기 1기당 하루 최대 충전 가능량 (kW × 24h × 이용률)
+              const maxKwhDay = cfg.kw * 24 * cfg.count
+              const bepHoursDay = cfg.kw * cfg.count > 0 ? bepKwhDay / (cfg.kw * cfg.count) : 0
+              const utilizationPct = maxKwhDay > 0 ? (bepKwhDay / maxKwhDay) * 100 : 0
+
+              return { label: cfg.label, kw: cfg.kw, count: cfg.count, rate,
+                revenuePerKwh, costPerKwh, marginPerKwh,
+                monthlyFixed, bepKwhMonth, bepKwhDay, bepHoursDay, utilizationPct }
+            })
+
+            // 전체 합산
+            const totalMonthlyFixed = rows.reduce((s, r) => s + r.monthlyFixed, 0)
+            const avgMarginPerKwh = rows.reduce((s, r) => s + r.marginPerKwh * r.count, 0) / (totalCount || 1)
+            const totalBepKwhMonth = avgMarginPerKwh > 0 ? totalMonthlyFixed / avgMarginPerKwh : Infinity
+            const totalBepKwhDay = totalBepKwhMonth / 30
+            const totalMaxKwhDay = totalKw * 24
+            const totalUtilization = totalMaxKwhDay > 0 ? (totalBepKwhDay / totalMaxKwhDay) * 100 : 0
+
+            const cardStyle: React.CSSProperties = {
+              background: 'white', borderRadius: 12, padding: '18px 20px',
+              boxShadow: '0 1px 4px rgba(0,0,0,0.08)', border: '1px solid #f0f0f0',
+            }
+            const secTitle: React.CSSProperties = {
+              fontSize: 13, fontWeight: 700, color: '#6b7280', letterSpacing: '0.05em',
+              textTransform: 'uppercase', marginBottom: 14,
+            }
+            const kpiVal: React.CSSProperties = { fontSize: 28, fontWeight: 800, color: C.primary, lineHeight: 1.1 }
+            const kpiLbl: React.CSSProperties = { fontSize: 12, color: '#9ca3af', marginTop: 4 }
+
+            const fmtKwh = (v: number) => v === Infinity ? '∞' : v >= 10000 ? `${(v/10000).toFixed(1)}만` : v.toLocaleString('ko-KR', { maximumFractionDigits: 1 })
+            const fmtHours = (h: number) => h >= 24 ? '24h 초과' : `${h.toFixed(1)}h`
+
+            const barColor = (pct: number) => pct <= 20 ? '#22c55e' : pct <= 50 ? '#f59e0b' : pct <= 80 ? '#f97316' : '#ef4444'
+
+            return (
+              <div style={{ padding: isMobile ? '10px 0' : '0' }}>
+                {/* 안내 배너 */}
+                <div style={{ background: 'linear-gradient(135deg,#6D28D9,#4338CA)', borderRadius: 12, padding: '16px 20px', marginBottom: 20, color: 'white' }}>
+                  <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 6 }}>⚡ 손익분기 kWh 계산기</div>
+                  <div style={{ fontSize: 13, opacity: 0.85, lineHeight: 1.6 }}>
+                    좌측에서 충전기 구성·비용을 설정하면 <strong>하루 몇 kWh를 충전해야 수익이 나는지</strong> 자동으로 계산합니다.<br/>
+                    시뮬레이션 실행 없이 현재 설정값 기준으로 즉시 계산됩니다.
+                  </div>
+                </div>
+
+                {/* 전체 합산 KPI */}
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4,1fr)', gap: 12, marginBottom: 20 }}>
+                  {[
+                    { label: '하루 필요 충전량', value: `${fmtKwh(totalBepKwhDay)} kWh`, sub: '전체 충전기 합산' },
+                    { label: '월 필요 충전량', value: `${fmtKwh(totalBepKwhMonth)} kWh`, sub: '하루×30일' },
+                    { label: '월 고정비용', value: `${Math.round(totalMonthlyFixed/10000).toLocaleString()}만원`, sub: '운영비+전기기본료+기타' },
+                    { label: '설비 이용률', value: totalBepKwhDay === Infinity ? '불가' : `${totalUtilization.toFixed(1)}%`, sub: '24시간 대비 필요 가동률' },
+                  ].map((k, i) => (
+                    <div key={i} style={{ ...cardStyle, textAlign: 'center' }}>
+                      <div style={kpiVal}>{k.value}</div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: '#374151', marginTop: 6 }}>{k.label}</div>
+                      <div style={kpiLbl}>{k.sub}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* 충전기별 상세 */}
+                <div style={cardStyle}>
+                  <div style={secTitle}>충전기 유형별 손익분기</div>
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                      <thead>
+                        <tr style={{ background: '#f9fafb' }}>
+                          {['충전기', '수량', '단가(원/kWh)', 'kWh당 순이익', '월 고정비용', '하루 필요량', '가동 시간', '이용률', '판정'].map(h => (
+                            <th key={h} style={{ padding: '10px 12px', textAlign: 'center', fontSize: 12, color: '#6b7280', fontWeight: 700, whiteSpace: 'nowrap', borderBottom: '2px solid #e5e7eb' }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {rows.map((r, i) => {
+                          const impossible = r.marginPerKwh <= 0
+                          const easy = r.utilizationPct < 20
+                          const verdict = impossible ? '❌ 손익 불가' : easy ? '✅ 달성 용이' : r.utilizationPct < 50 ? '🟡 보통' : r.utilizationPct < 80 ? '🟠 어려움' : '🔴 매우 어려움'
+                          return (
+                            <tr key={i} style={{ borderBottom: '1px solid #f3f4f6', background: i % 2 === 0 ? 'white' : '#fafafa' }}>
+                              <td style={{ padding: '10px 12px', fontWeight: 700, color: C.primary, whiteSpace: 'nowrap' }}>{r.label}</td>
+                              <td style={{ padding: '10px 12px', textAlign: 'center', color: '#374151' }}>{r.count}기</td>
+                              <td style={{ padding: '10px 12px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{r.rate.toLocaleString()}</td>
+                              <td style={{ padding: '10px 12px', textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: r.marginPerKwh > 0 ? '#16a34a' : '#dc2626', fontWeight: 700 }}>
+                                {r.marginPerKwh > 0 ? `+${r.marginPerKwh.toFixed(1)}` : r.marginPerKwh.toFixed(1)}원
+                              </td>
+                              <td style={{ padding: '10px 12px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{Math.round(r.monthlyFixed).toLocaleString()}원</td>
+                              <td style={{ padding: '10px 12px', textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: 700, color: impossible ? '#dc2626' : '#1d4ed8' }}>
+                                {impossible ? '-' : `${fmtKwh(r.bepKwhDay)} kWh`}
+                              </td>
+                              <td style={{ padding: '10px 12px', textAlign: 'center', color: '#6b7280' }}>
+                                {impossible ? '-' : fmtHours(r.bepHoursDay)}
+                              </td>
+                              <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                                {!impossible && (
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center' }}>
+                                    <div style={{ width: 48, height: 6, background: '#e5e7eb', borderRadius: 3, overflow: 'hidden' }}>
+                                      <div style={{ width: `${Math.min(100, r.utilizationPct)}%`, height: '100%', background: barColor(r.utilizationPct), borderRadius: 3, transition: 'width 0.4s' }}/>
+                                    </div>
+                                    <span style={{ fontSize: 12, color: barColor(r.utilizationPct), fontWeight: 700 }}>{r.utilizationPct.toFixed(0)}%</span>
+                                  </div>
+                                )}
+                              </td>
+                              <td style={{ padding: '10px 12px', textAlign: 'center', fontSize: 12, whiteSpace: 'nowrap' }}>{verdict}</td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* 계산 근거 */}
+                <div style={{ ...cardStyle, marginTop: 16 }}>
+                  <div style={secTitle}>계산 근거</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 16 }}>
+                    <div>
+                      <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 10, fontWeight: 700 }}>kWh당 순이익 산출</div>
+                      {configs.map((cfg, i) => (
+                        <div key={i} style={{ background: '#f9fafb', borderRadius: 8, padding: '10px 12px', marginBottom: 8, fontSize: 12 }}>
+                          <div style={{ fontWeight: 700, color: C.primary, marginBottom: 6 }}>{cfg.label}</div>
+                          <div style={{ color: '#6b7280', lineHeight: 1.8 }}>
+                            충전단가 {cfg.rate}원<br/>
+                            × (1 - PG {params.pg_fee_pct}%) × 운영사 {params.revenue_share_pct}%<br/>
+                            = 수입 {rows[i]?.revenuePerKwh.toFixed(1)}원/kWh<br/>
+                            - 전기요금 {rows[i]?.costPerKwh.toFixed(1)}원/kWh<br/>
+                            <span style={{ fontWeight: 700, color: (rows[i]?.marginPerKwh ?? 0) > 0 ? '#16a34a' : '#dc2626' }}>
+                              = 순이익 {rows[i]?.marginPerKwh.toFixed(1)}원/kWh
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 10, fontWeight: 700 }}>월 고정비용 항목</div>
+                      <div style={{ background: '#f9fafb', borderRadius: 8, padding: '10px 12px', fontSize: 12 }}>
+                        {[
+                          { label: '운영비', val: params.monthly_ops },
+                          { label: 'AS비', val: params.monthly_as },
+                          { label: '통신비', val: params.monthly_comm },
+                          { label: '전기안전관리대행비', val: params.monthly_elec_safety },
+                          { label: '기타비용', val: params.monthly_other },
+                          { label: '전기 기본료', val: params.elec_basic_rate * totalCount },
+                          { label: '보험료(월환산)', val: Math.round(params.insurance_yearly / 12) },
+                        ].filter(x => x.val > 0).map((x, i) => (
+                          <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid #f0f0f0', color: '#374151' }}>
+                            <span>{x.label}</span>
+                            <span style={{ fontVariantNumeric: 'tabular-nums' }}>{x.val.toLocaleString()}원</span>
+                          </div>
+                        ))}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0 0', fontWeight: 700, color: C.primary, borderTop: '2px solid #e5e7eb', marginTop: 4 }}>
+                          <span>합계</span>
+                          <span style={{ fontVariantNumeric: 'tabular-nums' }}>{Math.round(totalMonthlyFixed).toLocaleString()}원</span>
+                        </div>
+                      </div>
+                      <div style={{ marginTop: 10, background: '#eff6ff', borderRadius: 8, padding: '10px 12px', fontSize: 12, color: '#1d4ed8', lineHeight: 1.7 }}>
+                        💡 <strong>이용률 판정 기준</strong><br/>
+                        ✅ 20% 미만 — 달성 용이<br/>
+                        🟡 20~50% — 보통 (현실적)<br/>
+                        🟠 50~80% — 어려움 (고트래픽 필요)<br/>
+                        🔴 80% 이상 — 사실상 24시간 만충
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 단가별 민감도 분석 */}
+                <div style={{ ...cardStyle, marginTop: 16 }}>
+                  <div style={secTitle}>충전 단가별 하루 필요 kWh (전체 합산)</div>
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                      <thead>
+                        <tr style={{ background: '#f9fafb' }}>
+                          <th style={{ padding: '8px 12px', textAlign: 'center', fontSize: 12, color: '#6b7280', borderBottom: '2px solid #e5e7eb' }}>단가(원/kWh)</th>
+                          {[250,300,350,400,450,500,600,700].map(r => (
+                            <th key={r} style={{ padding: '8px 12px', textAlign: 'center', fontSize: 12, color: '#6b7280', borderBottom: '2px solid #e5e7eb', whiteSpace: 'nowrap' }}>{r}원</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td style={{ padding: '10px 12px', textAlign: 'center', fontWeight: 700, color: '#374151', background: '#f9fafb' }}>하루 필요량</td>
+                          {[250,300,350,400,450,500,600,700].map(rate => {
+                            const revPerKwh = rate * (1 - params.pg_fee_pct / 100) * (params.revenue_share_pct / 100)
+                            const margin = revPerKwh - elecKwhRate
+                            const bepDay = margin > 0 ? totalMonthlyFixed / margin / 30 : Infinity
+                            const uPct = totalMaxKwhDay > 0 && bepDay < Infinity ? (bepDay / totalMaxKwhDay) * 100 : Infinity
+                            const isCurrentRate = configs.every(c => c.rate === rate)
+                            return (
+                              <td key={rate} style={{
+                                padding: '10px 12px', textAlign: 'center', fontVariantNumeric: 'tabular-nums',
+                                fontWeight: isCurrentRate ? 800 : 400,
+                                background: isCurrentRate ? '#ede9fe' : bepDay === Infinity ? '#fef2f2' : uPct < 20 ? '#f0fdf4' : uPct < 50 ? '#fefce8' : '#fff7ed',
+                                color: bepDay === Infinity ? '#dc2626' : barColor(uPct),
+                              }}>
+                                {bepDay === Infinity ? '불가' : `${fmtKwh(bepDay)} kWh`}
+                              </td>
+                            )
+                          })}
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 8 }}>
+                    * 현재 설정 단가와 일치하는 열은 보라색으로 표시됩니다. 배경색: 초록=달성 용이, 노랑=보통, 주황=어려움, 빨강=불가
+                  </div>
+                </div>
+              </div>
+            )
+          })()}
+
           {tab === 'compare' && (() => {
             const rLump = runSimulation({ ...params, payment_type: '일시불' })
             const rInst = runSimulation({ ...params, payment_type: '할부' })
