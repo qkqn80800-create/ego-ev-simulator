@@ -4383,17 +4383,61 @@ function MainContent({ params, setParams, onResult, isMobile = false, scrollCont
 
             const barColor = (pct: number) => pct <= 20 ? '#22c55e' : pct <= 50 ? '#f59e0b' : pct <= 80 ? '#f97316' : '#ef4444'
 
+            const bepPrintRef = React.createRef<HTMLDivElement>()
+            const handleBepPrint = () => {
+              const el = bepPrintRef.current
+              if (!el) return
+              const w = window.open('', '_blank', 'width=900,height=700')
+              if (!w) return
+              const cfg0 = configs[0]
+              const cfgSummary = configs.map(c => `${c.label} ${c.count}대`).join(' · ')
+              w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>손익분기 kWh 분석</title><style>
+                *{box-sizing:border-box;margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+                body{background:#f8f7ff;padding:24px;color:#111}
+                h1{font-size:18px;font-weight:800;color:#6D28D9;margin-bottom:4px}
+                .sub{font-size:12px;color:#6b7280;margin-bottom:20px}
+                .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+                .kpi{background:white;border-radius:10px;padding:14px;text-align:center;border:1px solid #ede9fe}
+                .kpi-val{font-size:22px;font-weight:800;color:#6D28D9}
+                .kpi-lbl{font-size:11px;font-weight:700;color:#374151;margin-top:4px}
+                .kpi-sub{font-size:10px;color:#9ca3af;margin-top:2px}
+                .card{background:white;border-radius:10px;padding:16px;margin-bottom:16px;border:1px solid #f0f0f0}
+                .sec{font-size:11px;font-weight:700;color:#6b7280;letter-spacing:.05em;text-transform:uppercase;margin-bottom:12px}
+                table{width:100%;border-collapse:collapse;font-size:12px}
+                th{padding:8px 10px;text-align:center;font-size:11px;color:#6b7280;font-weight:700;border-bottom:2px solid #e5e7eb;white-space:nowrap;background:#f9fafb}
+                td{padding:9px 10px;border-bottom:1px solid #f3f4f6}
+                .note{font-size:10px;color:#9ca3af;margin-top:6px}
+                .bep-row{background:#f9fafb} .r10{background:#eff6ff} .r20{background:#f0fdf4} .r30{background:#f5f3ff}
+                .footer{font-size:10px;color:#9ca3af;margin-top:20px;text-align:center}
+                @media print{body{background:white;padding:16px}.footer{position:fixed;bottom:8px;width:100%}}
+              </style></head><body>`)
+              w.document.write(`<h1>⚡ 손익분기 kWh 분석</h1>`)
+              w.document.write(`<div class="sub">${cfgSummary} | 운영기간 ${params.operation_months}개월 | 충전단가 ${configs.map(c=>c.rate+'원').join('/')} | 인쇄일: ${new Date().toLocaleDateString('ko-KR')}</div>`)
+              w.document.write(el.innerHTML)
+              w.document.write(`<div class="footer">ego EV충전소 수익 시뮬레이터 — 손익분기 kWh 분석</div>`)
+              w.document.write('</body></html>')
+              w.document.close()
+              setTimeout(() => { w.focus(); w.print() }, 400)
+            }
+
             return (
               <div style={{ padding: isMobile ? '10px 0' : '0' }}>
                 {/* 안내 배너 */}
-                <div style={{ background: 'linear-gradient(135deg,#6D28D9,#4338CA)', borderRadius: 12, padding: '16px 20px', marginBottom: 20, color: 'white' }}>
-                  <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 6 }}>⚡ 손익분기 kWh 계산기</div>
-                  <div style={{ fontSize: 13, opacity: 0.85, lineHeight: 1.6 }}>
-                    좌측에서 충전기 구성·비용을 설정하면 <strong>하루 몇 kWh를 충전해야 수익이 나는지</strong> 자동으로 계산합니다.<br/>
-                    시뮬레이션 실행 없이 현재 설정값 기준으로 즉시 계산됩니다.
+                <div style={{ background: 'linear-gradient(135deg,#6D28D9,#4338CA)', borderRadius: 12, padding: '16px 20px', marginBottom: 20, color: 'white', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+                  <div>
+                    <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 6 }}>⚡ 손익분기 kWh 계산기</div>
+                    <div style={{ fontSize: 13, opacity: 0.85, lineHeight: 1.6 }}>
+                      좌측에서 충전기 구성·비용을 설정하면 <strong>하루 몇 kWh를 충전해야 수익이 나는지</strong> 자동으로 계산합니다.<br/>
+                      시뮬레이션 실행 없이 현재 설정값 기준으로 즉시 계산됩니다.
+                    </div>
                   </div>
+                  <button onClick={handleBepPrint} style={{ flexShrink: 0, background: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.45)', color: 'white', borderRadius: 8, padding: '8px 16px', fontSize: 13, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                    🖨️ 인쇄 / PDF
+                  </button>
                 </div>
 
+                {/* 인쇄 영역 시작 */}
+                <div ref={bepPrintRef}>
                 {/* 전체 합산 KPI */}
                 <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4,1fr)', gap: 12, marginBottom: 20 }}>
                   {[
@@ -4617,6 +4661,7 @@ function MainContent({ params, setParams, onResult, isMobile = false, scrollCont
                     * 현재 설정 단가와 일치하는 열은 보라색으로 표시됩니다. 배경색: 초록=달성 용이, 노랑=보통, 주황=어려움, 빨강=불가
                   </div>
                 </div>
+                </div>{/* 인쇄 영역 끝 */}
               </div>
             )
           })()}
