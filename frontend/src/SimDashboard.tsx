@@ -318,7 +318,7 @@ function ExtraCostsModal({ params, setParams, onClose, onReset, totalKw, totalCo
   onClose: () => void; onReset: () => void
   totalKw: number; totalCount: number; isLowVoltage: boolean
   estKepco: number; estKepcoBase: number; estKepcoDistance: number
-  estSafety: number; estElecSafety: number; estInsurance: number; insuranceNote: string
+  estSafety: number; estElecSafety: number; estInsurance: number; insuranceNote: string | null
 }) {
   const [openItems, setOpenItems] = useState<Record<string, boolean>>({})
   const toggle = (key: string) => setOpenItems(prev => ({ ...prev, [key]: !prev[key] }))
