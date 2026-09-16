@@ -1938,7 +1938,7 @@ function MainContent({ params, setParams, onResult, isMobile = false, scrollCont
 
   const exportExcel = async () => {
     const wb = new ExcelJS.Workbook()
-    wb.creator = 'ego 시뮬레이터'
+    wb.creator = '이고 수익 시뮬레이터'
 
     // ── 색상 팔레트 ──
     const COL_HEADER_BG = '4C1D95'  // 진한 보라
@@ -3474,7 +3474,7 @@ function MainContent({ params, setParams, onResult, isMobile = false, scrollCont
               borderRadius: 7, background: 'rgba(255,255,255,0.15)', letterSpacing: '-0.5px', flexShrink: 0,
             }}>ego</div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <h1 style={{ color: 'white', fontWeight: 700, fontSize: isMobile ? 15 : 22, lineHeight: 1.3 }}>EV충전소 수익 시뮬레이터</h1>
+              <h1 style={{ color: 'white', fontWeight: 700, fontSize: isMobile ? 15 : 22, lineHeight: 1.3 }}>수익 시뮬레이터</h1>
               <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: isMobile ? 11 : 13, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {r.charger_summary} | {params.operation_months}개월 | 초기투자 {fmtM(r.total_init_cost)}만원
                 {params.manager_name && <span style={{ color: '#FB923C', marginLeft: 6 }}>| 담당 {params.manager_name}{params.manager_discount > 0 ? ` · 할인 ${fmtM(params.manager_discount)}만원` : ''}</span>}
@@ -4387,7 +4387,7 @@ function MainContent({ params, setParams, onResult, isMobile = false, scrollCont
 
             const handleBepExcel = async () => {
               const wb = new ExcelJS.Workbook()
-              wb.creator = 'ego EV충전소 수익 시뮬레이터'
+              wb.creator = '이고 수익 시뮬레이터'
               wb.created = new Date()
 
               // ── 시트1: 손익분기 요약 ──────────────────────────
@@ -4570,7 +4570,7 @@ function MainContent({ params, setParams, onResult, isMobile = false, scrollCont
               w.document.write(`<h1>⚡ 손익분기 kWh 분석</h1>`)
               w.document.write(`<div class="sub">${cfgSummary} | 운영기간 ${params.operation_months}개월 | 충전단가 ${configs.map(c=>c.rate+'원').join('/')} | 인쇄일: ${new Date().toLocaleDateString('ko-KR')}</div>`)
               w.document.write(el.innerHTML)
-              w.document.write(`<div class="footer">ego EV충전소 수익 시뮬레이터 — 손익분기 kWh 분석</div>`)
+              w.document.write(`<div class="footer">이고 수익 시뮬레이터 — 손익분기 kWh 분석</div>`)
               w.document.write('</body></html>')
               w.document.close()
               setTimeout(() => { w.focus(); w.print() }, 400)
