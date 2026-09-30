@@ -112,8 +112,9 @@ def run_simulation(p: SimParams) -> SimResult:
         elec_basic    = contract_kw * p.elec_basic_rate
         elec_usage    = total_kwh * (p.elec_kwh_rate + p.elec_climate_rate + p.elec_fuel_rate)
         elec_sub      = elec_basic + elec_usage
+        # 전력기금은 부가세 과세 대상이 아니다 — 둘 다 전기요금계에 대해 따로 매긴다
         elec_fund     = elec_sub * (p.elec_fund_pct / 100)
-        elec_vat      = (elec_sub + elec_fund) * (p.elec_vat_pct / 100)
+        elec_vat      = elec_sub * (p.elec_vat_pct / 100)
         elec_cost     = elec_sub + elec_fund + elec_vat
 
         pg_fee        = gross_revenue * (p.pg_fee_pct / 100)

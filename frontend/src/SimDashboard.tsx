@@ -4320,7 +4320,9 @@ function MainContent({ params, setParams, onResult, isMobile = false, scrollCont
             const totalKw = configs.reduce((s, c) => s + c.kw * c.count, 0)
 
             // 전기요금 단가 (kWh당)
-            const elecKwhRate = (params.elec_kwh_rate + params.elec_climate_rate + params.elec_fuel_rate) * (1 + params.elec_fund_pct / 100) * (1 + params.elec_vat_pct / 100)
+            // 전력기금·부가세는 전기요금계에 각각 매긴다 (기금은 부가세 대상 아님)
+            const elecUplift = 1 + params.elec_fund_pct / 100 + params.elec_vat_pct / 100
+            const elecKwhRate = (params.elec_kwh_rate + params.elec_climate_rate + params.elec_fuel_rate) * elecUplift
 
             // 충전기별 손익분기 계산
             type BepRow = {
@@ -4348,8 +4350,7 @@ function MainContent({ params, setParams, onResult, isMobile = false, scrollCont
                 (params.monthly_ops + params.monthly_as + params.monthly_comm +
                  params.monthly_elec_safety + params.monthly_other) * ratio +
                 // 기본료에도 전력기금·부가세가 붙는다 (engine.ts 와 동일 기준)
-                params.elec_basic_rate * cfg.kw * cfg.count
-                  * (1 + params.elec_fund_pct / 100) * (1 + params.elec_vat_pct / 100) +
+                params.elec_basic_rate * cfg.kw * cfg.count * elecUplift +
                 (params.insurance_yearly / 12) * ratio +
                 monthlyInitAmort
 
@@ -4508,9 +4509,9 @@ function MainContent({ params, setParams, onResult, isMobile = false, scrollCont
               band(25, '② 계산 근거  (수식)', 'FF6B7280')
               ws.getCell('A26').value = '전기요금 단가 (kWh당)'
               ws.getCell('A26').style = { ...LBL }
-              ws.getCell('B26').value = { formula: '(B10+B11+B12)*(1+B13/100)*(1+B14/100)' } as ExcelJS.CellFormulaValue
+              ws.getCell('B26').value = { formula: '(B10+B11+B12)*(1+B13/100+B14/100)' } as ExcelJS.CellFormulaValue
               ws.getCell('B26').style = calcAs('#,##0.00')
-              ws.getCell('C26').value = '원/kWh  ← (전력량+기후환경+연료조정) × 기금 × 부가세'
+              ws.getCell('C26').value = '원/kWh  ← (전력량+기후환경+연료조정) + 전력기금 + 부가세  (기금은 부가세 대상 아님)'
               ws.getCell('C26').style = { ...LBL, font: { size: 9, color: { argb: 'FF9CA3AF' } } }
               ws.getRow(26).height = 17
 
@@ -4539,7 +4540,7 @@ function MainContent({ params, setParams, onResult, isMobile = false, scrollCont
               ws.getCell('A29').value = '월 운영 고정비 (초기투자 제외)'
               ws.getCell('A29').style = { ...LBL }
               ws.getCell('B29').value = { formula:
-                `B27+B9*B${TOTR}*(1+B13/100)*(1+B14/100)` } as ExcelJS.CellFormulaValue
+                `B27+B9*B${TOTR}*(1+B13/100+B14/100)` } as ExcelJS.CellFormulaValue
               ws.getCell('B29').style = calcAs(won)
               ws.getCell('C29').value = '원/월  ← 월 고정비 합계 + 전기 기본료(기금·부가세 포함)'
               ws.getCell('C29').style = { ...LBL, font: { size: 9, color: { argb: 'FF9CA3AF' } } }
@@ -4583,7 +4584,7 @@ function MainContent({ params, setParams, onResult, isMobile = false, scrollCont
                 const ratio = `(C${r}/SUM(${cntAbs}))`
                 row.getCell(7).value = { formula: `D${r}*(1-$B$6/100)*($B$7/100)-$B$26` } as ExcelJS.CellFormulaValue
                 row.getCell(8).value = { formula:
-                  `$B$27*${ratio}+$B$9*B${r}*C${r}*(1+$B$13/100)*(1+$B$14/100)` +
+                  `$B$27*${ratio}+$B$9*B${r}*C${r}*(1+$B$13/100+$B$14/100)` +
                   `+((E${r}+F${r})*C${r}+$B$28*${ratio})/$B$8` } as ExcelJS.CellFormulaValue
                 row.getCell(9).value = { formula: `IF(G${r}>0,H${r}/G${r},"불가")` } as ExcelJS.CellFormulaValue
                 row.getCell(10).value = { formula: `IF(G${r}>0,I${r}/30,"불가")` } as ExcelJS.CellFormulaValue
@@ -5019,8 +5020,7 @@ function MainContent({ params, setParams, onResult, isMobile = false, scrollCont
                           { label: '기타비용', val: params.monthly_other },
                           // 기본료에도 전력기금·부가세가 붙는다 (합계와 맞춘다)
                           { label: `전기 기본료(${params.elec_basic_rate}원/kW × ${totalKw}kW, 기금·부가세 포함)`,
-                            val: Math.round(params.elec_basic_rate * totalKw
-                              * (1 + params.elec_fund_pct / 100) * (1 + params.elec_vat_pct / 100)) },
+                            val: Math.round(params.elec_basic_rate * totalKw * elecUplift) },
                           { label: '보험료(월환산)', val: Math.round(params.insurance_yearly / 12) },
                           { label: `초기투자 월할당(÷${params.operation_months}개월)`, val: Math.round(rows.reduce((s,r)=>s+r.monthlyInitAmort,0)) },
                         ].filter(x => x.val > 0).map((x, i) => (

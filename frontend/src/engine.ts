@@ -52,8 +52,10 @@ export function runSimulation(p: SimParams): SimResult {
     const elecBasic = contractKw * p.elec_basic_rate
     const elecUsage = totalKwh * (p.elec_kwh_rate + p.elec_climate_rate + p.elec_fuel_rate)
     const elecSub = elecBasic + elecUsage
+    // 전력기금과 부가세는 둘 다 '전기요금계' 에 대해 따로 매긴다.
+    // 전력기금은 부가세 과세 대상이 아니므로 기금에 부가세를 얹지 않는다.
     const elecFund = elecSub * (p.elec_fund_pct / 100)
-    const elecVat = (elecSub + elecFund) * (p.elec_vat_pct / 100)
+    const elecVat = elecSub * (p.elec_vat_pct / 100)
     const elecCost = elecSub + elecFund + elecVat
 
     const pgFee = grossRevenue * (p.pg_fee_pct / 100)
