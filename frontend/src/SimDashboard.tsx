@@ -1887,11 +1887,15 @@ function MainContent({ params, setParams, onResult, isMobile = false, scrollCont
     const other = Math.round(rr.records.reduce((s, rec) => s + rec.other, 0) / 10000)
     const pg    = Math.round(rr.records.reduce((s, rec) => s + rec.pg_fee, 0) / 10000)
     const inst  = Math.round(rr.records.reduce((s, rec) => s + rec.installment, 0) / 10000)
-    const total = elec + ops + as_ + other + pg + inst || 1
+    const safe  = Math.round(rr.records.reduce((s, rec) => s + (rec.elec_safety ?? 0), 0) / 10000)
+    const ins   = Math.round(rr.records.reduce((s, rec) => s + (rec.insurance ?? 0), 0) / 10000)
+    const total = elec + ops + as_ + other + pg + inst + safe + ins || 1
     return [
       { name: '전기요금', value: elec,  fill: '#0284C7' },
       { name: '운영비',   value: ops,   fill: '#F59E0B' },
       { name: 'AS비',     value: as_,   fill: '#10B981' },
+      { name: '안전관리비', value: safe, fill: '#14B8A6' },
+      { name: '보험료',   value: ins,   fill: '#A855F7' },
       { name: '기타',     value: other, fill: '#F43F5E' },
       { name: 'PG수수료', value: pg,    fill: '#8B5CF6' },
       { name: '할부금',   value: inst,  fill: '#EC4899' },
@@ -1916,6 +1920,8 @@ function MainContent({ params, setParams, onResult, isMobile = false, scrollCont
     { name: '전기요금', value: r.records.reduce((s, x) => s + x.elec_cost, 0),    fill: '#0284C7' },
     { name: '운영비',   value: r.records.reduce((s, x) => s + x.ops, 0),          fill: '#6366F1' },
     { name: 'AS비',     value: r.records.reduce((s, x) => s + x.as_cost, 0),      fill: '#10B981' },
+    { name: '안전관리비', value: r.records.reduce((s, x) => s + (x.elec_safety ?? 0), 0), fill: '#14B8A6' },
+    { name: '보험료',   value: r.records.reduce((s, x) => s + (x.insurance ?? 0), 0),   fill: '#A855F7' },
     { name: '기타',     value: r.records.reduce((s, x) => s + x.other, 0),        fill: '#F43F5E' },
     { name: 'PG수수료', value: r.records.reduce((s, x) => s + x.pg_fee, 0),       fill: '#8B5CF6' },
     { name: '할부금',   value: r.records.reduce((s, x) => s + x.installment, 0),  fill: '#EC4899' },
@@ -4341,7 +4347,9 @@ function MainContent({ params, setParams, onResult, isMobile = false, scrollCont
               const monthlyFixed =
                 (params.monthly_ops + params.monthly_as + params.monthly_comm +
                  params.monthly_elec_safety + params.monthly_other) * ratio +
-                params.elec_basic_rate * cfg.kw * cfg.count +
+                // 기본료에도 전력기금·부가세가 붙는다 (engine.ts 와 동일 기준)
+                params.elec_basic_rate * cfg.kw * cfg.count
+                  * (1 + params.elec_fund_pct / 100) * (1 + params.elec_vat_pct / 100) +
                 (params.insurance_yearly / 12) * ratio +
                 monthlyInitAmort
 

@@ -61,6 +61,8 @@ export interface MonthRecord {
   ops: number
   as_cost: number
   other: number
+  elec_safety?: number
+  insurance?: number
   total_cost: number
   net_profit: number
   cumulative: number

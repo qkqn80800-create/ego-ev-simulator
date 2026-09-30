@@ -7,8 +7,11 @@ export function runSimulation(p: SimParams): SimResult {
   const chargerCost = hasPerTypeCost
     ? p.charger_configs.reduce((s, c) => s + ((c.cost_unit ?? p.cost_charger_unit) + (c.cost_install ?? 0)) * c.count, 0)
     : (p.cost_charger_unit + p.cost_installation) * totalCount
-  // 외부 고정 비용: 부속시설물만 포함 (한전부담금·사용전검사비는 고객 안내용, 비용 미반영)
+  // 외부 고정 비용: 부속시설물 + 한전부담금 + 사용전검사비까지 모두 반영한다.
+  // (예전에는 뒤 두 항목을 고객 안내용으로만 두어 손익분기 kWh 탭과 기준이 어긋났다)
   const fixedExtraInit = (p.cost_other_init ?? 0)
+    + (p.cost_kepco_burden ?? 0)
+    + (p.cost_safety_inspection ?? 0)
   const totalInitCost = chargerCost + fixedExtraInit
 
   const isInstallment = p.payment_type === '할부'
@@ -65,8 +68,11 @@ export function runSimulation(p: SimParams): SimResult {
         }, 0)
       : p.monthly_ops
     const instThisMonth = isInstallment && m <= instMonths ? monthlyInstallment : 0
-    // monthly_elec_safety, insurance_yearly는 고객 안내용 — 비용 미반영
-    const totalCost = elecCost + perTypeOps + p.monthly_as + (p.monthly_comm ?? 5000) + p.monthly_other + instThisMonth
+    // 전기안전관리대행비(월)와 사고배상책임보험료(연 → 월)도 비용에 넣는다
+    const safetyMonthly = p.monthly_elec_safety ?? 0
+    const insuranceMonthly = (p.insurance_yearly ?? 0) / 12
+    const totalCost = elecCost + perTypeOps + p.monthly_as + (p.monthly_comm ?? 5000)
+      + p.monthly_other + safetyMonthly + insuranceMonthly + instThisMonth
     const netProfit = myRevenue - totalCost
     cumulative += netProfit
 
@@ -86,6 +92,8 @@ export function runSimulation(p: SimParams): SimResult {
       ops: perTypeOps,
       as_cost: p.monthly_as,
       other: p.monthly_other,
+      elec_safety: Math.round(safetyMonthly),
+      insurance: Math.round(insuranceMonthly),
       installment: Math.round(instThisMonth),
       total_cost: Math.round(totalCost),
       net_profit: Math.round(netProfit),
