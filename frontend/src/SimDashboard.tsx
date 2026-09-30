@@ -4393,157 +4393,244 @@ function MainContent({ params, setParams, onResult, isMobile = false, scrollCont
 
             const bepPrintRef = React.createRef<HTMLDivElement>()
 
+            /** 손익분기 엑셀 — 값이 아니라 수식으로 쓴다.
+             *  노란 칸(입력)을 고치면 흰 칸(계산)이 엑셀에서 바로 다시 계산된다. */
             const handleBepExcel = async () => {
               const wb = new ExcelJS.Workbook()
               wb.creator = '이고 수익 시뮬레이터'
               wb.created = new Date()
-
-              // ── 시트1: 손익분기 요약 ──────────────────────────
-              const ws = wb.addWorksheet('손익분기 요약')
+              const ws = wb.addWorksheet('손익분기 계산')
               ws.columns = [
-                { width: 18 }, { width: 14 }, { width: 14 }, { width: 16 },
-                { width: 16 }, { width: 16 }, { width: 16 }, { width: 18 },
+                { width: 22 }, { width: 15 }, { width: 10 }, { width: 14 },
+                { width: 14 }, { width: 14 }, { width: 15 }, { width: 15 },
+                { width: 16 }, { width: 16 }, { width: 12 },
               ]
 
-              const hStyle = (bg: string, fgColor = 'FFFFFFFF'): Partial<ExcelJS.Style> => ({
-                font: { bold: true, color: { argb: fgColor }, size: 11 },
+              const P = params
+              const N = configs.length
+              const won = '#,##0'
+              const won1 = '#,##0.0'
+              const pct1 = '0.0"%"'
+
+              /** 입력 칸 — 노란 배경 + 파란 글씨 */
+              const IN: Partial<ExcelJS.Style> = {
+                font: { color: { argb: 'FF1D4ED8' }, bold: true },
+                fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } },
+                alignment: { horizontal: 'right', vertical: 'middle' },
+                border: { top: { style: 'thin', color: { argb: 'FFE5E7EB' } }, bottom: { style: 'thin', color: { argb: 'FFE5E7EB' } },
+                          left: { style: 'thin', color: { argb: 'FFE5E7EB' } }, right: { style: 'thin', color: { argb: 'FFE5E7EB' } } },
+              }
+              /** 계산 칸 — 흰 배경 + 검은 글씨 */
+              const CALC: Partial<ExcelJS.Style> = {
+                font: { color: { argb: 'FF111827' } },
+                alignment: { horizontal: 'right', vertical: 'middle' },
+                border: { bottom: { style: 'thin', color: { argb: 'FFF3F4F6' } }, right: { style: 'thin', color: { argb: 'FFF3F4F6' } } },
+              }
+              const LBL: Partial<ExcelJS.Style> = {
+                font: { size: 10, color: { argb: 'FF374151' } },
+                alignment: { horizontal: 'left', vertical: 'middle' },
+                border: { bottom: { style: 'thin', color: { argb: 'FFF3F4F6' } } },
+              }
+              const head = (bg: string, fg = 'FFFFFFFF'): Partial<ExcelJS.Style> => ({
+                font: { bold: true, color: { argb: fg }, size: 11 },
                 fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: bg } },
                 alignment: { horizontal: 'center', vertical: 'middle', wrapText: true },
-                border: {
-                  bottom: { style: 'thin', color: { argb: 'FFD1D5DB' } },
-                  right: { style: 'thin', color: { argb: 'FFD1D5DB' } },
-                },
+                border: { bottom: { style: 'thin', color: { argb: 'FFD1D5DB' } }, right: { style: 'thin', color: { argb: 'FFD1D5DB' } } },
               })
-              const cellStyle = (align: ExcelJS.Alignment['horizontal'] = 'center'): Partial<ExcelJS.Style> => ({
-                alignment: { horizontal: align, vertical: 'middle' },
-                border: { bottom: { style: 'thin', color: { argb: 'FFF3F4F6' } }, right: { style: 'thin', color: { argb: 'FFF3F4F6' } } },
-              })
-              const numFmt = (v: number, decimals = 1) =>
-                v === Infinity ? '불가' : v.toLocaleString('ko-KR', { maximumFractionDigits: decimals, minimumFractionDigits: decimals })
+              const band = (row: number, text: string, bg: string) => {
+                ws.mergeCells(`A${row}:K${row}`)
+                ws.getCell(`A${row}`).value = text
+                ws.getCell(`A${row}`).style = { ...head(bg), alignment: { horizontal: 'left', vertical: 'middle' } }
+                ws.getRow(row).height = 22
+              }
+              const put = (row: number, label: string, value: number, fmt = won, unit = '') => {
+                ws.getCell(`A${row}`).value = label
+                ws.getCell(`A${row}`).style = LBL
+                const c = ws.getCell(`B${row}`)
+                c.value = value
+                c.style = IN
+                c.numFmt = fmt
+                if (unit) {
+                  ws.getCell(`C${row}`).value = unit
+                  ws.getCell(`C${row}`).style = { ...LBL, font: { size: 9, color: { argb: 'FF9CA3AF' } } }
+                }
+                ws.getRow(row).height = 17
+              }
 
-              // 제목
-              ws.mergeCells('A1:H1')
-              const titleCell = ws.getCell('A1')
-              titleCell.value = '⚡ 손익분기 kWh 분석'
-              titleCell.style = { font: { bold: true, size: 14, color: { argb: 'FF6D28D9' } }, alignment: { horizontal: 'center', vertical: 'middle' } }
-              ws.getRow(1).height = 28
-
-              ws.mergeCells('A2:H2')
-              ws.getCell('A2').value = `${configs.map(c => `${c.label} ${c.count}대`).join(' · ')} | 운영기간 ${params.operation_months}개월 | 작성일: ${new Date().toLocaleDateString('ko-KR')}`
+              // ── 제목 ───────────────────────────────────────
+              ws.mergeCells('A1:K1')
+              ws.getCell('A1').value = '⚡ 손익분기 kWh 계산서'
+              ws.getCell('A1').style = { font: { bold: true, size: 15, color: { argb: 'FF6D28D9' } }, alignment: { horizontal: 'center', vertical: 'middle' } }
+              ws.getRow(1).height = 30
+              ws.mergeCells('A2:K2')
+              ws.getCell('A2').value =
+                `${configs.map(c => `${c.label} ${c.count}대`).join(' · ')}  |  운영기간 ${P.operation_months}개월  |  작성일 ${new Date().toLocaleDateString('ko-KR')}`
               ws.getCell('A2').style = { font: { size: 10, color: { argb: 'FF6B7280' } }, alignment: { horizontal: 'center' } }
-              ws.getRow(2).height = 18
+              ws.mergeCells('A3:K3')
+              ws.getCell('A3').value = '노란 칸만 고치세요. 흰 칸은 수식이라 자동으로 다시 계산됩니다.'
+              ws.getCell('A3').style = { font: { size: 10, bold: true, color: { argb: 'FFB45309' } },
+                fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFBEB' } },
+                alignment: { horizontal: 'center', vertical: 'middle' } }
+              ws.getRow(3).height = 20
 
-              ws.addRow([]) // 빈행
+              // ── 공통 입력 ──────────────────────────────────
+              band(5, '① 공통 입력  (노란 칸)', 'FFD97706')
+              put(6,  'PG 수수료', P.pg_fee_pct, '0.00"%"')
+              put(7,  '운영사 수익 배분율', P.revenue_share_pct, '0.0"%"')
+              put(8,  '운영 기간', P.operation_months, '0"개월"')
+              put(9,  '전기 기본료', P.elec_basic_rate, won, '원/kW·월')
+              put(10, '전력량 요금', P.elec_kwh_rate, won1, '원/kWh')
+              put(11, '기후환경 요금', P.elec_climate_rate, won1, '원/kWh')
+              put(12, '연료비 조정', P.elec_fuel_rate, won1, '원/kWh')
+              put(13, '전력산업기반기금', P.elec_fund_pct, '0.00"%"')
+              put(14, '부가세', P.elec_vat_pct, '0.00"%"')
+              put(15, '월 운영비', P.monthly_ops, won, '원/월')
+              put(16, '월 AS비', P.monthly_as, won, '원/월')
+              put(17, '월 통신비', P.monthly_comm ?? 5000, won, '원/월')
+              put(18, '월 전기안전관리비', P.monthly_elec_safety ?? 0, won, '원/월')
+              put(19, '월 기타비용', P.monthly_other, won, '원/월')
+              put(20, '보험료(연간)', P.insurance_yearly ?? 0, won, '원/년')
+              put(21, '기타 초기비용', P.cost_other_init ?? 0, won, '원')
+              put(22, '한전 시설부담금', P.cost_kepco_burden ?? 0, won, '원')
+              put(23, '사용전검사·감리비', P.cost_safety_inspection ?? 0, won, '원')
 
-              // ── 전체 합산 KPI ──
-              ws.mergeCells('A4:H4')
-              ws.getCell('A4').value = '[ 전체 합산 ]'
-              ws.getCell('A4').style = hStyle('FF6D28D9')
-              ws.getRow(4).height = 22
+              // ── 파생 단가 ──────────────────────────────────
+              band(25, '② 계산 근거  (수식)', 'FF6B7280')
+              ws.getCell('A26').value = '전기요금 단가 (kWh당)'
+              ws.getCell('A26').style = LBL
+              ws.getCell('B26').value = { formula: '(B10+B11+B12)*(1+B13/100)*(1+B14/100)' } as ExcelJS.CellFormulaValue
+              ws.getCell('B26').style = CALC
+              ws.getCell('B26').numFmt = '#,##0.00'
+              ws.getCell('C26').value = '원/kWh  ← (전력량+기후환경+연료조정) × 기금 × 부가세'
+              ws.getCell('C26').style = { ...LBL, font: { size: 9, color: { argb: 'FF9CA3AF' } } }
+              ws.getRow(26).height = 17
 
-              const kpiHeaders = ['하루 필요 충전량', '월 필요 충전량', '월 고정비용', '설비 이용률']
-              const kpiRow5 = ws.addRow(kpiHeaders)
-              kpiRow5.eachCell(cell => { cell.style = hStyle('FFE9D5FF', 'FF4B0082') })
-              ws.getRow(5).height = 20
+              ws.getCell('A27').value = '월 고정비 합계 (배분 전)'
+              ws.getCell('A27').style = LBL
+              ws.getCell('B27').value = { formula: 'B15+B16+B17+B18+B19+B20/12' } as ExcelJS.CellFormulaValue
+              ws.getCell('B27').style = CALC
+              ws.getCell('B27').numFmt = won
+              ws.getCell('C27').value = '원/월  ← 운영비+AS+통신+안전관리+기타+보험료÷12'
+              ws.getCell('C27').style = { ...LBL, font: { size: 9, color: { argb: 'FF9CA3AF' } } }
+              ws.getRow(27).height = 17
 
-              const kpiValues = [
-                totalBepKwhDay === Infinity ? '불가' : `${numFmt(totalBepKwhDay)} kWh`,
-                totalBepKwhMonth === Infinity ? '불가' : `${numFmt(totalBepKwhMonth)} kWh`,
-                `${(totalMonthlyFixed / 10000).toFixed(1)}만원`,
-                totalUtilization === Infinity || totalMaxKwhDay === 0 ? '불가' : `${numFmt(totalUtilization)}%`,
-              ]
-              const kpiRow6 = ws.addRow(kpiValues)
-              kpiRow6.eachCell(cell => { cell.style = { ...cellStyle(), font: { bold: true, size: 12, color: { argb: 'FF6D28D9' } } } })
-              ws.getRow(6).height = 22
+              ws.getCell('A28').value = '공용 초기비용'
+              ws.getCell('A28').style = LBL
+              ws.getCell('B28').value = { formula: 'B21+B22+B23' } as ExcelJS.CellFormulaValue
+              ws.getCell('B28').style = CALC
+              ws.getCell('B28').numFmt = won
+              ws.getCell('C28').value = '원  ← 기타초기+한전부담금+검사비 (대수 비율로 나눔)'
+              ws.getCell('C28').style = { ...LBL, font: { size: 9, color: { argb: 'FF9CA3AF' } } }
+              ws.getRow(28).height = 17
 
-              ws.addRow([]) // 빈행
+              // ── 충전기별 표 ────────────────────────────────
+              const HDR = 31            // 헤더 행
+              const R0 = HDR + 1        // 첫 데이터 행
+              band(30, '③ 충전기 유형별  (노란 칸: 구성 · 흰 칸: 계산)', 'FF4338CA')
+              const cols = ['충전기 유형', '용량(kW)', '대수', '충전단가\n(원/kWh)', '충전기 단가\n(원/대)', '설치비\n(원/대)',
+                            'kWh당 마진\n(원)', '월 고정비\n(원)', '월 손익분기\n(kWh)', '일 손익분기\n(kWh)', '설비\n이용률']
+              const hr = ws.getRow(HDR)
+              cols.forEach((t, i) => { hr.getCell(i + 1).value = t; hr.getCell(i + 1).style = head('FFE0E7FF', 'FF1E1B4B') })
+              hr.height = 32
 
-              // ── 충전기 유형별 상세 ──
-              ws.mergeCells('A8:H8')
-              ws.getCell('A8').value = '[ 충전기 유형별 손익분기 ]'
-              ws.getCell('A8').style = hStyle('FF4338CA')
-              ws.getRow(8).height = 22
+              const TOT = R0 + N        // 합계 행
+              // 대수 합계는 행마다 같은 범위를 봐야 하므로 절대참조로 고정한다
+              const cntAbs = `$C$${R0}:$C$${R0 + N - 1}`
 
-              const detailHeaders = ['충전기 유형', '용량(kW)', '대수', '충전단가(원/kWh)', 'kWh당 순이익(원)', '월 고정비용(원)', '월 손익분기(kWh)', '일 손익분기(kWh)']
-              const hRow = ws.addRow(detailHeaders)
-              hRow.eachCell(cell => { cell.style = hStyle('FFE0E7FF', 'FF1E1B4B') })
-              ws.getRow(9).height = 20
-
-              rows.forEach((r, i) => {
-                const row = ws.addRow([
-                  r.label, r.kw, r.count, r.rate,
-                  r.marginPerKwh === Infinity ? '불가' : Math.round(r.marginPerKwh * 10) / 10,
-                  Math.round(r.monthlyFixed),
-                  r.bepKwhMonth === Infinity ? '불가' : Math.round(r.bepKwhMonth * 10) / 10,
-                  r.bepKwhDay === Infinity ? '불가' : Math.round(r.bepKwhDay * 10) / 10,
-                ])
-                const bg = i % 2 === 0 ? 'FFFFFFFF' : 'FFF9F8FF'
-                row.eachCell(cell => { cell.style = { ...cellStyle(), fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: bg } } } })
-                ws.getRow(9 + 1 + i).height = 18
+              configs.forEach((cfg, i) => {
+                const r = R0 + i
+                const row = ws.getRow(r)
+                // 입력 6칸
+                row.getCell(1).value = cfg.label
+                row.getCell(1).style = { ...IN, alignment: { horizontal: 'left', vertical: 'middle' } }
+                row.getCell(2).value = cfg.kw
+                row.getCell(3).value = cfg.count
+                row.getCell(4).value = cfg.rate
+                row.getCell(5).value = cfg.cost_unit ?? P.cost_charger_unit
+                row.getCell(6).value = cfg.cost_install ?? P.cost_installation
+                for (let c = 2; c <= 6; c++) { row.getCell(c).style = IN; row.getCell(c).numFmt = c === 2 ? '0' : won }
+                // 수식 5칸
+                const ratio = `(C${r}/SUM(${cntAbs}))`
+                row.getCell(7).value = { formula: `D${r}*(1-$B$6/100)*($B$7/100)-$B$26` } as ExcelJS.CellFormulaValue
+                row.getCell(8).value = { formula:
+                  `$B$27*${ratio}+$B$9*B${r}*C${r}*(1+$B$13/100)*(1+$B$14/100)` +
+                  `+((E${r}+F${r})*C${r}+$B$28*${ratio})/$B$8` } as ExcelJS.CellFormulaValue
+                row.getCell(9).value = { formula: `IF(G${r}>0,H${r}/G${r},"불가")` } as ExcelJS.CellFormulaValue
+                row.getCell(10).value = { formula: `IF(G${r}>0,I${r}/30,"불가")` } as ExcelJS.CellFormulaValue
+                row.getCell(11).value = { formula: `IF(AND(G${r}>0,B${r}*C${r}>0),J${r}/(B${r}*24*C${r})*100,"")` } as ExcelJS.CellFormulaValue
+                for (let c = 7; c <= 11; c++) {
+                  row.getCell(c).style = CALC
+                  row.getCell(c).numFmt = c === 7 ? '#,##0.0' : c === 8 ? won : c === 11 ? pct1 : won1
+                }
+                row.height = 18
               })
 
-              ws.addRow([]) // 빈행
+              // 합계 행
+              const tr = ws.getRow(TOT)
+              tr.getCell(1).value = '전체 합산'
+              tr.getCell(2).value = { formula: `SUMPRODUCT(B${R0}:B${R0 + N - 1},C${R0}:C${R0 + N - 1})` } as ExcelJS.CellFormulaValue
+              tr.getCell(3).value = { formula: `SUM(C${R0}:C${R0 + N - 1})` } as ExcelJS.CellFormulaValue
+              tr.getCell(7).value = { formula: `SUMPRODUCT(G${R0}:G${R0 + N - 1},C${R0}:C${R0 + N - 1})/C${TOT}` } as ExcelJS.CellFormulaValue
+              tr.getCell(8).value = { formula: `SUM(H${R0}:H${R0 + N - 1})` } as ExcelJS.CellFormulaValue
+              tr.getCell(9).value = { formula: `IF(G${TOT}>0,H${TOT}/G${TOT},"불가")` } as ExcelJS.CellFormulaValue
+              tr.getCell(10).value = { formula: `IF(G${TOT}>0,I${TOT}/30,"불가")` } as ExcelJS.CellFormulaValue
+              tr.getCell(11).value = { formula: `IF(AND(G${TOT}>0,B${TOT}>0),J${TOT}/(B${TOT}*24)*100,"")` } as ExcelJS.CellFormulaValue
+              for (let c = 1; c <= 11; c++) {
+                tr.getCell(c).style = {
+                  font: { bold: true, color: { argb: 'FF4338CA' } },
+                  fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEEF2FF' } },
+                  alignment: { horizontal: c === 1 ? 'left' : 'right', vertical: 'middle' },
+                  border: { top: { style: 'thin', color: { argb: 'FFC7D2FE' } }, bottom: { style: 'double', color: { argb: 'FFC7D2FE' } } },
+                }
+                tr.getCell(c).numFmt = c === 2 || c === 3 ? '#,##0' : c === 7 ? '#,##0.0' : c === 8 ? won : c === 11 ? pct1 : won1
+              }
+              tr.height = 20
 
-              // ── 수익 목표별 필요 충전량 ──
-              const profitTargetRow = 10 + rows.length + 1
-              ws.mergeCells(`A${profitTargetRow}:H${profitTargetRow}`)
-              ws.getCell(`A${profitTargetRow}`).value = '[ 수익 목표별 필요 충전량 ]'
-              ws.getCell(`A${profitTargetRow}`).style = hStyle('FF059669')
-              ws.getRow(profitTargetRow).height = 22
-
-              const profitHRow = ws.addRow(['수익 목표', '월 목표 수익(원)', '월 필요 충전량(kWh)', '일 필요 충전량(kWh)'])
-              profitHRow.eachCell(cell => { cell.style = hStyle('FFD1FAE5', 'FF065F46') })
-              ws.getRow(profitTargetRow + 1).height = 20
-
-              const profitTargets = [0, 10, 20, 30]
-              profitTargets.forEach((pct, i) => {
-                const targetMonthlyProfit = totalMonthlyFixed * pct / 100
-                const targetKwhMonth = avgMarginPerKwh > 0 ? (totalMonthlyFixed + targetMonthlyProfit) / avgMarginPerKwh : Infinity
-                const targetKwhDay = targetKwhMonth / 30
-                const row = ws.addRow([
-                  pct === 0 ? '손익분기(0%)' : `수익 ${pct}%`,
-                  pct === 0 ? '-' : Math.round(targetMonthlyProfit).toLocaleString('ko-KR'),
-                  targetKwhMonth === Infinity ? '불가' : numFmt(targetKwhMonth),
-                  targetKwhDay === Infinity ? '불가' : numFmt(targetKwhDay),
-                ])
-                const bg = pct === 0 ? 'FFFFFBEB' : i % 2 === 0 ? 'FFFFFFFF' : 'FFF0FDF4'
-                row.eachCell(cell => { cell.style = { ...cellStyle(), fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: bg } } } })
-                ws.getRow(profitTargetRow + 2 + i).height = 18
+              // ── 수익 목표별 ────────────────────────────────
+              const PT = TOT + 2
+              band(PT, '④ 수익 목표별 필요 충전량  (전체 합산 기준)', 'FF059669')
+              const ph = ws.getRow(PT + 1)
+              const pcols = ['목표 수익률', '월 목표 수익(원)', '월 필요 충전량(kWh)', '일 필요 충전량(kWh)', '설비 이용률']
+              pcols.forEach((t, i) => { ph.getCell(i + 1).value = t; ph.getCell(i + 1).style = head('FFD1FAE5', 'FF065F46') })
+              ph.height = 20
+              ;[0, 10, 20, 30].forEach((pctv, i) => {
+                const r = PT + 2 + i
+                const row = ws.getRow(r)
+                row.getCell(1).value = pctv / 100
+                row.getCell(1).style = IN
+                row.getCell(1).numFmt = '0"%"'
+                row.getCell(2).value = { formula: `$H$${TOT}*A${r}` } as ExcelJS.CellFormulaValue
+                row.getCell(3).value = { formula: `IF($G$${TOT}>0,($H$${TOT}+B${r})/$G$${TOT},"불가")` } as ExcelJS.CellFormulaValue
+                row.getCell(4).value = { formula: `IF($G$${TOT}>0,C${r}/30,"불가")` } as ExcelJS.CellFormulaValue
+                row.getCell(5).value = { formula: `IF(AND($G$${TOT}>0,$B$${TOT}>0),D${r}/($B$${TOT}*24)*100,"")` } as ExcelJS.CellFormulaValue
+                for (let c = 2; c <= 5; c++) {
+                  row.getCell(c).style = { ...CALC, fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: i === 0 ? 'FFFFFBEB' : 'FFFFFFFF' } } }
+                  row.getCell(c).numFmt = c === 2 ? won : c === 5 ? pct1 : won1
+                }
+                row.height = 18
               })
 
-              ws.addRow([])
+              // ── 범례 ──────────────────────────────────────
+              const LG = PT + 7
+              ws.mergeCells(`A${LG}:K${LG}`)
+              ws.getCell(`A${LG}`).value =
+                '■ 노란 칸 = 고칠 수 있는 값   ■ 흰 칸 = 수식 (자동 계산)   ' +
+                '※ 손익분기 kWh = 월 고정비 ÷ kWh당 마진,  kWh당 마진 = 충전단가×(1−PG%)×배분율% − 전기요금 단가'
+              ws.getCell(`A${LG}`).style = {
+                font: { size: 9, color: { argb: 'FF6B7280' } },
+                fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF9FAFB' } },
+                alignment: { horizontal: 'left', vertical: 'middle', wrapText: true },
+              }
+              ws.getRow(LG).height = 30
 
-              // ── 계산 근거 ──
-              const basisRow = profitTargetRow + 7
-              ws.mergeCells(`A${basisRow}:H${basisRow}`)
-              ws.getCell(`A${basisRow}`).value = '[ 계산 근거 ]'
-              ws.getCell(`A${basisRow}`).style = hStyle('FF6B7280')
-              ws.getRow(basisRow).height = 22
+              ws.views = [{ state: 'frozen', ySplit: 3 }]
 
-              const basisItems = [
-                ['충전 단가', `${configs.map(c => `${c.label} ${c.rate}원/kWh`).join(' / ')}`],
-                ['전기요금 단가', `${numFmt(elecKwhRate, 2)}원/kWh (기후환경+연료조정+부가세 포함)`],
-                ['PG 수수료', `${params.pg_fee_pct}%`],
-                ['운영사 수익 배분', `${params.revenue_share_pct}%`],
-                ['운영 기간', `${params.operation_months}개월`],
-                ['전기 기본료', `${params.elec_basic_rate.toLocaleString('ko-KR')}원/kW`],
-                ['보험료(연간)', `${(params.insurance_yearly / 10000).toFixed(0)}만원`],
-              ]
-              basisItems.forEach((item, i) => {
-                const row = ws.addRow([item[0], item[1], '', '', '', '', '', ''])
-                ws.mergeCells(`B${basisRow + 1 + i}:H${basisRow + 1 + i}`)
-                row.getCell(1).style = { ...cellStyle(), font: { bold: true, size: 10 }, fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF9FAFB' } } }
-                row.getCell(2).style = { alignment: { horizontal: 'left', vertical: 'middle' }, font: { size: 10 } }
-                ws.getRow(basisRow + 1 + i).height = 16
-              })
-
-              // 다운로드
               const buf = await wb.xlsx.writeBuffer()
               const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
               const url = URL.createObjectURL(blob)
               const a = document.createElement('a')
               a.href = url
-              a.download = `손익분기분석_${new Date().toISOString().slice(0, 10)}.xlsx`
+              a.download = `손익분기계산서_${new Date().toISOString().slice(0, 10)}.xlsx`
               a.click()
               URL.revokeObjectURL(url)
             }
@@ -4787,7 +4874,10 @@ function MainContent({ params, setParams, onResult, isMobile = false, scrollCont
                           { label: '통신비', val: params.monthly_comm },
                           { label: '전기안전관리대행비', val: params.monthly_elec_safety },
                           { label: '기타비용', val: params.monthly_other },
-                          { label: `전기 기본료(${params.elec_basic_rate}원/kW × ${totalKw}kW)`, val: params.elec_basic_rate * totalKw },
+                          // 기본료에도 전력기금·부가세가 붙는다 (합계와 맞춘다)
+                          { label: `전기 기본료(${params.elec_basic_rate}원/kW × ${totalKw}kW, 기금·부가세 포함)`,
+                            val: Math.round(params.elec_basic_rate * totalKw
+                              * (1 + params.elec_fund_pct / 100) * (1 + params.elec_vat_pct / 100)) },
                           { label: '보험료(월환산)', val: Math.round(params.insurance_yearly / 12) },
                           { label: `초기투자 월할당(÷${params.operation_months}개월)`, val: Math.round(rows.reduce((s,r)=>s+r.monthlyInitAmort,0)) },
                         ].filter(x => x.val > 0).map((x, i) => (
