@@ -4414,6 +4414,7 @@ function MainContent({ params, setParams, onResult, isMobile = false, scrollCont
               const N = configs.length
               const won = '#,##0'
               const won1 = '#,##0.0'
+              const kwh1 = '#,##0.0'      // kWh — 머리글에 단위가 적혀 있어 숫자만
               const pct1 = '0.0"%"'
 
               /** 입력 칸 — 노란 배경 + 파란 글씨 */
@@ -4435,6 +4436,12 @@ function MainContent({ params, setParams, onResult, isMobile = false, scrollCont
                 alignment: { horizontal: 'left', vertical: 'middle' },
                 border: { bottom: { style: 'thin', color: { argb: 'FFF3F4F6' } } },
               }
+              /** 입력 칸 — 서식마다 새 객체를 만들어 준다 (공유 객체를 넘기면 다른 셀 서식까지 바뀐다) */
+              const inAs = (numFmt: string, extra: Partial<ExcelJS.Style> = {}): Partial<ExcelJS.Style> =>
+                ({ ...IN, numFmt, ...extra })
+              /** 계산 칸 — 서식마다 새 객체를 만들어 준다 */
+              const calcAs = (numFmt: string, extra: Partial<ExcelJS.Style> = {}): Partial<ExcelJS.Style> =>
+                ({ ...CALC, numFmt, ...extra })
               const head = (bg: string, fg = 'FFFFFFFF'): Partial<ExcelJS.Style> => ({
                 font: { bold: true, color: { argb: fg }, size: 11 },
                 fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: bg } },
@@ -4449,11 +4456,10 @@ function MainContent({ params, setParams, onResult, isMobile = false, scrollCont
               }
               const put = (row: number, label: string, value: number, fmt = won, unit = '') => {
                 ws.getCell(`A${row}`).value = label
-                ws.getCell(`A${row}`).style = LBL
+                ws.getCell(`A${row}`).style = { ...LBL }
                 const c = ws.getCell(`B${row}`)
                 c.value = value
-                c.style = IN
-                c.numFmt = fmt
+                c.style = inAs(fmt)
                 if (unit) {
                   ws.getCell(`C${row}`).value = unit
                   ws.getCell(`C${row}`).style = { ...LBL, font: { size: 9, color: { argb: 'FF9CA3AF' } } }
@@ -4501,28 +4507,25 @@ function MainContent({ params, setParams, onResult, isMobile = false, scrollCont
               // ── 파생 단가 ──────────────────────────────────
               band(25, '② 계산 근거  (수식)', 'FF6B7280')
               ws.getCell('A26').value = '전기요금 단가 (kWh당)'
-              ws.getCell('A26').style = LBL
+              ws.getCell('A26').style = { ...LBL }
               ws.getCell('B26').value = { formula: '(B10+B11+B12)*(1+B13/100)*(1+B14/100)' } as ExcelJS.CellFormulaValue
-              ws.getCell('B26').style = CALC
-              ws.getCell('B26').numFmt = '#,##0.00'
+              ws.getCell('B26').style = calcAs('#,##0.00')
               ws.getCell('C26').value = '원/kWh  ← (전력량+기후환경+연료조정) × 기금 × 부가세'
               ws.getCell('C26').style = { ...LBL, font: { size: 9, color: { argb: 'FF9CA3AF' } } }
               ws.getRow(26).height = 17
 
               ws.getCell('A27').value = '월 고정비 합계 (배분 전)'
-              ws.getCell('A27').style = LBL
+              ws.getCell('A27').style = { ...LBL }
               ws.getCell('B27').value = { formula: 'B15+B16+B17+B18+B19+B20/12' } as ExcelJS.CellFormulaValue
-              ws.getCell('B27').style = CALC
-              ws.getCell('B27').numFmt = won
+              ws.getCell('B27').style = calcAs(won)
               ws.getCell('C27').value = '원/월  ← 운영비+AS+통신+안전관리+기타+보험료÷12'
               ws.getCell('C27').style = { ...LBL, font: { size: 9, color: { argb: 'FF9CA3AF' } } }
               ws.getRow(27).height = 17
 
               ws.getCell('A28').value = '공용 초기비용'
-              ws.getCell('A28').style = LBL
+              ws.getCell('A28').style = { ...LBL }
               ws.getCell('B28').value = { formula: 'B21+B22+B23' } as ExcelJS.CellFormulaValue
-              ws.getCell('B28').style = CALC
-              ws.getCell('B28').numFmt = won
+              ws.getCell('B28').style = calcAs(won)
               ws.getCell('C28').value = '원  ← 기타초기+한전부담금+검사비 (대수 비율로 나눔)'
               ws.getCell('C28').style = { ...LBL, font: { size: 9, color: { argb: 'FF9CA3AF' } } }
               ws.getRow(28).height = 17
@@ -4534,21 +4537,19 @@ function MainContent({ params, setParams, onResult, isMobile = false, scrollCont
 
               // 매달 나가는 고정비 (초기투자 월할당 제외) — BEP 개월 계산용
               ws.getCell('A29').value = '월 운영 고정비 (초기투자 제외)'
-              ws.getCell('A29').style = LBL
+              ws.getCell('A29').style = { ...LBL }
               ws.getCell('B29').value = { formula:
                 `B27+B9*B${TOTR}*(1+B13/100)*(1+B14/100)` } as ExcelJS.CellFormulaValue
-              ws.getCell('B29').style = CALC
-              ws.getCell('B29').numFmt = won
+              ws.getCell('B29').style = calcAs(won)
               ws.getCell('C29').value = '원/월  ← 월 고정비 합계 + 전기 기본료(기금·부가세 포함)'
               ws.getCell('C29').style = { ...LBL, font: { size: 9, color: { argb: 'FF9CA3AF' } } }
               ws.getRow(29).height = 17
 
               ws.getCell('A30').value = '초기투자 총액'
-              ws.getCell('A30').style = LBL
+              ws.getCell('A30').style = { ...LBL }
               ws.getCell('B30').value = { formula:
                 `SUMPRODUCT((E${R0}:E${R0 + N - 1}+F${R0}:F${R0 + N - 1}),C${R0}:C${R0 + N - 1})+B28` } as ExcelJS.CellFormulaValue
-              ws.getCell('B30').style = CALC
-              ws.getCell('B30').numFmt = won
+              ws.getCell('B30').style = calcAs(won)
               ws.getCell('C30').value = '원  ← (충전기단가+설치비)×대수 + 공용 초기비용'
               ws.getCell('C30').style = { ...LBL, font: { size: 9, color: { argb: 'FF9CA3AF' } } }
               ws.getRow(30).height = 17
@@ -4575,7 +4576,9 @@ function MainContent({ params, setParams, onResult, isMobile = false, scrollCont
                 row.getCell(4).value = cfg.rate
                 row.getCell(5).value = cfg.cost_unit ?? P.cost_charger_unit
                 row.getCell(6).value = cfg.cost_install ?? P.cost_installation
-                for (let c = 2; c <= 6; c++) { row.getCell(c).style = IN; row.getCell(c).numFmt = c === 2 ? '0' : won }
+                // 2 용량(kW) · 3 대수 · 4 충전단가(원/kWh) · 5·6 원
+                const inFmts = ['0', '0"대"', won1, won, won]
+                for (let c = 2; c <= 6; c++) row.getCell(c).style = inAs(inFmts[c - 2])
                 // 수식 5칸
                 const ratio = `(C${r}/SUM(${cntAbs}))`
                 row.getCell(7).value = { formula: `D${r}*(1-$B$6/100)*($B$7/100)-$B$26` } as ExcelJS.CellFormulaValue
@@ -4585,10 +4588,9 @@ function MainContent({ params, setParams, onResult, isMobile = false, scrollCont
                 row.getCell(9).value = { formula: `IF(G${r}>0,H${r}/G${r},"불가")` } as ExcelJS.CellFormulaValue
                 row.getCell(10).value = { formula: `IF(G${r}>0,I${r}/30,"불가")` } as ExcelJS.CellFormulaValue
                 row.getCell(11).value = { formula: `IF(AND(G${r}>0,B${r}*C${r}>0),J${r}/(B${r}*24*C${r})*100,"")` } as ExcelJS.CellFormulaValue
-                for (let c = 7; c <= 11; c++) {
-                  row.getCell(c).style = CALC
-                  row.getCell(c).numFmt = c === 7 ? '#,##0.0' : c === 8 ? won : c === 11 ? pct1 : won1
-                }
+                // 7 마진(원) · 8 월 고정비(원) · 9·10 손익분기(kWh) · 11 이용률(%)
+                const calcFmts = [won1, won, kwh1, kwh1, pct1]
+                for (let c = 7; c <= 11; c++) row.getCell(c).style = calcAs(calcFmts[c - 7])
                 row.height = 18
               })
 
@@ -4602,14 +4604,16 @@ function MainContent({ params, setParams, onResult, isMobile = false, scrollCont
               tr.getCell(9).value = { formula: `IF(G${TOT}>0,H${TOT}/G${TOT},"불가")` } as ExcelJS.CellFormulaValue
               tr.getCell(10).value = { formula: `IF(G${TOT}>0,I${TOT}/30,"불가")` } as ExcelJS.CellFormulaValue
               tr.getCell(11).value = { formula: `IF(AND(G${TOT}>0,B${TOT}>0),J${TOT}/(B${TOT}*24)*100,"")` } as ExcelJS.CellFormulaValue
+              // 2 총 용량(kW) · 3 총 대수 · 7 평균 마진(원) · 8 월 고정비(원) · 9·10 손익분기(kWh) · 11 이용률(%)
+              const totFmts: Record<number, string> = { 2: '#,##0', 3: '0"대"', 7: won1, 8: won, 9: kwh1, 10: kwh1, 11: pct1 }
               for (let c = 1; c <= 11; c++) {
                 tr.getCell(c).style = {
                   font: { bold: true, color: { argb: 'FF4338CA' } },
                   fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEEF2FF' } },
                   alignment: { horizontal: c === 1 ? 'left' : 'right', vertical: 'middle' },
                   border: { top: { style: 'thin', color: { argb: 'FFC7D2FE' } }, bottom: { style: 'double', color: { argb: 'FFC7D2FE' } } },
+                  numFmt: totFmts[c] ?? 'General',
                 }
-                tr.getCell(c).numFmt = c === 2 || c === 3 ? '#,##0' : c === 7 ? '#,##0.0' : c === 8 ? won : c === 11 ? pct1 : won1
               }
               tr.height = 20
 
@@ -4624,15 +4628,16 @@ function MainContent({ params, setParams, onResult, isMobile = false, scrollCont
                 const r = PT + 2 + i
                 const row = ws.getRow(r)
                 row.getCell(1).value = pctv / 100
-                row.getCell(1).style = IN
-                row.getCell(1).numFmt = '0"%"'
+                row.getCell(1).style = inAs('0%')   // 0.1 → 10%
                 row.getCell(2).value = { formula: `$H$${TOT}*A${r}` } as ExcelJS.CellFormulaValue
                 row.getCell(3).value = { formula: `IF($G$${TOT}>0,($H$${TOT}+B${r})/$G$${TOT},"불가")` } as ExcelJS.CellFormulaValue
                 row.getCell(4).value = { formula: `IF($G$${TOT}>0,C${r}/30,"불가")` } as ExcelJS.CellFormulaValue
                 row.getCell(5).value = { formula: `IF(AND($G$${TOT}>0,$B$${TOT}>0),D${r}/($B$${TOT}*24)*100,"")` } as ExcelJS.CellFormulaValue
+                // 2 목표 수익(원) · 3·4 필요 충전량(kWh) · 5 이용률(%)
+                const ptFmts = [won, kwh1, kwh1, pct1]
                 for (let c = 2; c <= 5; c++) {
-                  row.getCell(c).style = { ...CALC, fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: i === 0 ? 'FFFFFBEB' : 'FFFFFFFF' } } }
-                  row.getCell(c).numFmt = c === 2 ? won : c === 5 ? pct1 : won1
+                  row.getCell(c).style = calcAs(ptFmts[c - 2],
+                    { fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: i === 0 ? 'FFFFFBEB' : 'FFFFFFFF' } } })
                 }
                 row.height = 18
               })
@@ -4653,19 +4658,20 @@ function MainContent({ params, setParams, onResult, isMobile = false, scrollCont
                 const r = BP + 2 + i
                 const row = ws.getRow(r)
                 row.getCell(1).value = Math.round(baseDay * f * 10) / 10
-                row.getCell(1).style = IN
-                row.getCell(1).numFmt = won1
+                row.getCell(1).style = inAs(kwh1)
                 row.getCell(2).value = { formula: `A${r}*30` } as ExcelJS.CellFormulaValue
                 row.getCell(3).value = { formula: `B${r}*$G$${TOTR}-$B$29` } as ExcelJS.CellFormulaValue
                 row.getCell(4).value = { formula: `IF(C${r}>0,$B$30/C${r},"회수 불가")` } as ExcelJS.CellFormulaValue
                 row.getCell(5).value = { formula: `C${r}*$B$8-$B$30` } as ExcelJS.CellFormulaValue
                 row.getCell(6).value = { formula: `IF($B$${TOTR}>0,A${r}/($B$${TOTR}*24)*100,"")` } as ExcelJS.CellFormulaValue
                 const isBase = Math.abs(f - 1) < 1e-9
+                // 2 월 충전량(kWh) · 3 월 순이익(원) · 4 BEP(개월) · 5 누적(원) · 6 이용률(%)
+                const bpFmts = [kwh1, won, '#,##0.0"개월"', won, pct1]
                 for (let c = 2; c <= 6; c++) {
-                  row.getCell(c).style = { ...CALC,
+                  row.getCell(c).style = calcAs(bpFmts[c - 2], {
                     fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: isBase ? 'FFFFFBEB' : 'FFFFFFFF' } },
-                    font: isBase ? { bold: true, color: { argb: 'FFB45309' } } : { color: { argb: 'FF111827' } } }
-                  row.getCell(c).numFmt = c === 2 ? won1 : c === 4 ? '#,##0.0"개월"' : c === 6 ? pct1 : won
+                    font: isBase ? { bold: true, color: { argb: 'FFB45309' } } : { color: { argb: 'FF111827' } },
+                  })
                 }
                 row.height = 18
               })
