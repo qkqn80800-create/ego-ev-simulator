@@ -5,7 +5,7 @@ export function runSimulation(p: SimParams): SimResult {
   const hasPerTypeCost = p.charger_configs.some(c => c.cost_unit !== undefined)
   // 충전기 구매·설치비: 할인율 적용 대상
   const chargerCost = hasPerTypeCost
-    ? p.charger_configs.reduce((s, c) => s + ((c.cost_unit ?? p.cost_charger_unit) + (c.cost_install ?? 0)) * c.count, 0)
+    ? p.charger_configs.reduce((s, c) => s + ((c.cost_unit ?? p.cost_charger_unit) + (c.cost_install ?? p.cost_installation)) * c.count, 0)
     : (p.cost_charger_unit + p.cost_installation) * totalCount
   // 외부 고정 비용: 부속시설물 + 한전부담금 + 사용전검사비까지 모두 반영한다.
   // (예전에는 뒤 두 항목을 고객 안내용으로만 두어 손익분기 kWh 탭과 기준이 어긋났다)

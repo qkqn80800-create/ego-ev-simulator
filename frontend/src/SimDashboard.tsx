@@ -4505,57 +4505,57 @@ function MainContent({ params, setParams, onResult, isMobile = false, scrollCont
               put(22, '한전 시설부담금', P.cost_kepco_burden ?? 0, won, '원')
               put(23, '사용전검사·감리비', P.cost_safety_inspection ?? 0, won, '원')
 
-              // ── 파생 단가 ──────────────────────────────────
-              band(25, '② 계산 근거  (수식)', 'FF6B7280')
-              ws.getCell('A26').value = '전기요금 단가 (kWh당)'
-              ws.getCell('A26').style = { ...LBL }
-              ws.getCell('B26').value = { formula: '(B10+B11+B12)*(1+B13/100+B14/100)' } as ExcelJS.CellFormulaValue
-              ws.getCell('B26').style = calcAs('#,##0.00')
-              ws.getCell('C26').value = '원/kWh  ← (전력량+기후환경+연료조정) + 전력기금 + 부가세  (기금은 부가세 대상 아님)'
-              ws.getCell('C26').style = { ...LBL, font: { size: 9, color: { argb: 'FF9CA3AF' } } }
-              ws.getRow(26).height = 17
-
-              ws.getCell('A27').value = '월 고정비 합계 (배분 전)'
-              ws.getCell('A27').style = { ...LBL }
-              ws.getCell('B27').value = { formula: 'B15+B16+B17+B18+B19+B20/12' } as ExcelJS.CellFormulaValue
-              ws.getCell('B27').style = calcAs(won)
-              ws.getCell('C27').value = '원/월  ← 운영비+AS+통신+안전관리+기타+보험료÷12'
-              ws.getCell('C27').style = { ...LBL, font: { size: 9, color: { argb: 'FF9CA3AF' } } }
-              ws.getRow(27).height = 17
-
-              ws.getCell('A28').value = '공용 초기비용'
-              ws.getCell('A28').style = { ...LBL }
-              ws.getCell('B28').value = { formula: 'B21+B22+B23' } as ExcelJS.CellFormulaValue
-              ws.getCell('B28').style = calcAs(won)
-              ws.getCell('C28').value = '원  ← 기타초기+한전부담금+검사비 (대수 비율로 나눔)'
-              ws.getCell('C28').style = { ...LBL, font: { size: 9, color: { argb: 'FF9CA3AF' } } }
-              ws.getRow(28).height = 17
-
-              // ── 충전기별 표 ────────────────────────────────
-              const HDR = 33            // 헤더 행
+              // ── 충전기별 표의 자리 (아래 ② 수식이 이 행들을 참조한다) ──
+              const HDR = 35            // 헤더 행
               const R0 = HDR + 1        // 첫 데이터 행
               const TOTR = R0 + N       // 합계 행 (아래 BEP 표에서도 쓴다)
+              const eRng = `E${R0}:E${R0 + N - 1}`   // 충전기 단가 (원/대)
+              const fRng = `F${R0}:F${R0 + N - 1}`   // 설치비 (원/대)
+              const cRng = `C${R0}:C${R0 + N - 1}`   // 대수
+
+              // ── 파생 단가 ──────────────────────────────────
+              // 행 번호를 상수로 둔다. 아래 ③·④·⑤ 가 전부 이 값을 참조한다.
+              const R_ELEC = 26   // 전기요금 단가 (kWh당)
+              const R_FIX  = 27   // 월 고정비 합계 (배분 전)
+              const R_CHG  = 28   // 충전기 구입비
+              const R_INST = 29   // 설치비
+              const R_COMM = 30   // 공용 초기비용
+              const R_INIT = 31   // 초기투자 총액
+              const R_OPEX = 32   // 월 운영 고정비 (초기투자 제외)
+
+              band(25, '② 계산 근거  (수식)', 'FF6B7280')
+              /** ② 한 줄 — 라벨 · 수식 · 단위설명 */
+              const calcRow = (row: number, label: string, formula: string, unit: string, fmt = won) => {
+                ws.getCell(`A${row}`).value = label
+                ws.getCell(`A${row}`).style = { ...LBL }
+                ws.getCell(`B${row}`).value = { formula } as ExcelJS.CellFormulaValue
+                ws.getCell(`B${row}`).style = calcAs(fmt)
+                ws.getCell(`C${row}`).value = unit
+                ws.getCell(`C${row}`).style = { ...LBL, font: { size: 9, color: { argb: 'FF9CA3AF' } } }
+                ws.getRow(row).height = 17
+              }
+
+              calcRow(R_ELEC, '전기요금 단가 (kWh당)', '(B10+B11+B12)*(1+B13/100+B14/100)',
+                '원/kWh  ← (전력량+기후환경+연료조정) + 전력기금 + 부가세  (기금은 부가세 대상 아님)', '#,##0.00')
+              calcRow(R_FIX, '월 고정비 합계 (배분 전)', 'B15+B16+B17+B18+B19+B20/12',
+                '원/월  ← 운영비+AS+통신+안전관리+기타+보험료÷12')
+
+              // 초기투자 내역 — 충전기와 설치비를 따로 보여 준다 (③ 표에서 끌어온다)
+              calcRow(R_CHG, '충전기 구입비', `SUMPRODUCT(${eRng},${cRng})`,
+                '원  ← 충전기 단가 × 대수')
+              calcRow(R_INST, '설치비', `SUMPRODUCT(${fRng},${cRng})`,
+                '원  ← 설치비 × 대수')
+              calcRow(R_COMM, '공용 초기비용', 'B21+B22+B23',
+                '원  ← 기타초기+한전부담금+검사비 (대수 비율로 나눔)')
+              calcRow(R_INIT, '초기투자 총액', `B${R_CHG}+B${R_INST}+B${R_COMM}`,
+                '원  ← 충전기 구입비 + 설치비 + 공용 초기비용')
 
               // 매달 나가는 고정비 (초기투자 월할당 제외) — BEP 개월 계산용
-              ws.getCell('A29').value = '월 운영 고정비 (초기투자 제외)'
-              ws.getCell('A29').style = { ...LBL }
-              ws.getCell('B29').value = { formula:
-                `B27+B9*B${TOTR}*(1+B13/100+B14/100)` } as ExcelJS.CellFormulaValue
-              ws.getCell('B29').style = calcAs(won)
-              ws.getCell('C29').value = '원/월  ← 월 고정비 합계 + 전기 기본료(기금·부가세 포함)'
-              ws.getCell('C29').style = { ...LBL, font: { size: 9, color: { argb: 'FF9CA3AF' } } }
-              ws.getRow(29).height = 17
+              calcRow(R_OPEX, '월 운영 고정비 (초기투자 제외)',
+                `B${R_FIX}+B9*B${TOTR}*(1+B13/100+B14/100)`,
+                '원/월  ← 월 고정비 합계 + 전기 기본료(기금·부가세 포함)')
 
-              ws.getCell('A30').value = '초기투자 총액'
-              ws.getCell('A30').style = { ...LBL }
-              ws.getCell('B30').value = { formula:
-                `SUMPRODUCT((E${R0}:E${R0 + N - 1}+F${R0}:F${R0 + N - 1}),C${R0}:C${R0 + N - 1})+B28` } as ExcelJS.CellFormulaValue
-              ws.getCell('B30').style = calcAs(won)
-              ws.getCell('C30').value = '원  ← (충전기단가+설치비)×대수 + 공용 초기비용'
-              ws.getCell('C30').style = { ...LBL, font: { size: 9, color: { argb: 'FF9CA3AF' } } }
-              ws.getRow(30).height = 17
-
-              band(32, '③ 충전기 유형별  (노란 칸: 구성 · 흰 칸: 계산)', 'FF4338CA')
+              band(34, '③ 충전기 유형별  (노란 칸: 구성 · 흰 칸: 계산)', 'FF4338CA')
               const cols = ['충전기 유형', '용량(kW)', '대수', '충전단가\n(원/kWh)', '충전기 단가\n(원/대)', '설치비\n(원/대)',
                             'kWh당 마진\n(원)', '월 고정비\n(원)', '월 손익분기\n(kWh)', '일 손익분기\n(kWh)', '설비\n이용률']
               const hr = ws.getRow(HDR)
@@ -4582,10 +4582,10 @@ function MainContent({ params, setParams, onResult, isMobile = false, scrollCont
                 for (let c = 2; c <= 6; c++) row.getCell(c).style = inAs(inFmts[c - 2])
                 // 수식 5칸
                 const ratio = `(C${r}/SUM(${cntAbs}))`
-                row.getCell(7).value = { formula: `D${r}*(1-$B$6/100)*($B$7/100)-$B$26` } as ExcelJS.CellFormulaValue
+                row.getCell(7).value = { formula: `D${r}*(1-$B$6/100)*($B$7/100)-$B$${R_ELEC}` } as ExcelJS.CellFormulaValue
                 row.getCell(8).value = { formula:
-                  `$B$27*${ratio}+$B$9*B${r}*C${r}*(1+$B$13/100+$B$14/100)` +
-                  `+((E${r}+F${r})*C${r}+$B$28*${ratio})/$B$8` } as ExcelJS.CellFormulaValue
+                  `$B$${R_FIX}*${ratio}+$B$9*B${r}*C${r}*(1+$B$13/100+$B$14/100)` +
+                  `+((E${r}+F${r})*C${r}+$B$${R_COMM}*${ratio})/$B$8` } as ExcelJS.CellFormulaValue
                 row.getCell(9).value = { formula: `IF(G${r}>0,H${r}/G${r},"불가")` } as ExcelJS.CellFormulaValue
                 row.getCell(10).value = { formula: `IF(G${r}>0,I${r}/30,"불가")` } as ExcelJS.CellFormulaValue
                 row.getCell(11).value = { formula: `IF(AND(G${r}>0,B${r}*C${r}>0),J${r}/(B${r}*24*C${r})*100,"")` } as ExcelJS.CellFormulaValue
@@ -4662,10 +4662,10 @@ function MainContent({ params, setParams, onResult, isMobile = false, scrollCont
                 row.getCell(1).value = Math.round(baseDay * f * 10) / 10
                 row.getCell(1).style = inAs(kwh1)
                 row.getCell(2).value = { formula: `A${r}*30` } as ExcelJS.CellFormulaValue
-                row.getCell(3).value = { formula: `B${r}*$G$${TOTR}-$B$29` } as ExcelJS.CellFormulaValue
-                row.getCell(4).value = { formula: `IF(C${r}>0,$B$30/C${r},"회수 불가")` } as ExcelJS.CellFormulaValue
-                row.getCell(5).value = { formula: `C${r}*$B$8-$B$30` } as ExcelJS.CellFormulaValue
-                row.getCell(6).value = { formula: `IF($B$30>0,E${r}/$B$30*100,"")` } as ExcelJS.CellFormulaValue
+                row.getCell(3).value = { formula: `B${r}*$G$${TOTR}-$B$${R_OPEX}` } as ExcelJS.CellFormulaValue
+                row.getCell(4).value = { formula: `IF(C${r}>0,$B$${R_INIT}/C${r},"회수 불가")` } as ExcelJS.CellFormulaValue
+                row.getCell(5).value = { formula: `C${r}*$B$8-$B$${R_INIT}` } as ExcelJS.CellFormulaValue
+                row.getCell(6).value = { formula: `IF($B$${R_INIT}>0,E${r}/$B$${R_INIT}*100,"")` } as ExcelJS.CellFormulaValue
                 row.getCell(7).value = { formula: `IF($B$${TOTR}>0,A${r}/($B$${TOTR}*24)*100,"")` } as ExcelJS.CellFormulaValue
                 const isBase = Math.abs(f - 1) < 1e-9
                 // 2 월 충전량(kWh) · 3 월 순이익(원) · 4 BEP(개월) · 5 누적(원) · 6 최종 수익률(%) · 7 이용률(%)
