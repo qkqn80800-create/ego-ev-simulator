@@ -738,7 +738,7 @@ function GlobalUpdateModal({ params, setParams, pwd, setPwd, pwdErr, setPwdErr, 
           </div>
           <div style={row2}>
             <div><SLabel ch="기후환경요금 (원/kWh)"/><SReadonly value={merged.elec_climate_rate}/></div>
-            <div><SLabel ch="연료비조정액 (원/kWh)"/><SReadonly value={merged.elec_fuel_rate}/></div>
+            <div><SLabel ch="연료비조정액 (원/kWh)"/><SNum value={merged.elec_fuel_rate} step={1} onChange={v => updDraft({ elec_fuel_rate: v })}/></div>
           </div>
           <div><SLabel ch="전력기금 (%)"/><SReadonly value={merged.elec_fund_pct}/></div>
         </div>

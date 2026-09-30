@@ -89,8 +89,8 @@ export const CHARGER_TYPES: Record<string, { kw: number; default_rate: number; d
 }
 
 export const ELEC_PRESET: Record<string, { basic: number; kwh: number; climate: number; fuel: number; fund: number }> = {
-  '저압': { basic: 2390,  kwh: 128.5, climate: 9, fuel: -5, fund: 2.7 },
-  '고압': { basic: 2580,  kwh: 109.5, climate: 9, fuel: -5, fund: 2.7 },
+  '저압': { basic: 2390,  kwh: 128.5, climate: 9, fuel: 5, fund: 2.7 },
+  '고압': { basic: 2580,  kwh: 109.5, climate: 9, fuel: 5, fund: 2.7 },
 }
 
 export const DEFAULT_PARAMS: SimParams = {
@@ -106,7 +106,7 @@ export const DEFAULT_PARAMS: SimParams = {
   elec_basic_rate: 2390,
   elec_kwh_rate: 128.5,
   elec_climate_rate: 9,
-  elec_fuel_rate: -5,
+  elec_fuel_rate: 5,
   elec_fund_pct: 2.7,
   elec_vat_pct: 10,
   cost_charger_unit: 1_100_000,

@@ -37,7 +37,7 @@ class SimRequest(BaseModel):
     elec_basic_rate: float = 2390
     elec_kwh_rate: float = 128.5
     elec_climate_rate: float = 9
-    elec_fuel_rate: float = -5
+    elec_fuel_rate: float = 5
     elec_fund_pct: float = 2.7
     elec_vat_pct: float = 10.0
     cost_charger_unit: int = 1_000_000
