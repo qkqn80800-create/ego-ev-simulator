@@ -4647,7 +4647,8 @@ function MainContent({ params, setParams, onResult, isMobile = false, scrollCont
               band(BP, '⑤ 일 충전량별 BEP 달성 시점  (노란 칸에 하루 충전량을 넣어 비교하세요)', 'FFB45309')
               const bh = ws.getRow(BP + 1)
               const bcols = ['일 충전량\n(kWh/일)', '월 충전량\n(kWh)', '월 순이익\n(원)',
-                             'BEP 도달\n(개월)', `${P.operation_months}개월 누적\n순이익(원)`, '설비\n이용률']
+                             'BEP 도달\n(개월)', `${P.operation_months}개월 누적\n순이익(원)`,
+                             '최종 수익률\n(누적÷투자)', '설비\n이용률']
               bcols.forEach((t, i) => { bh.getCell(i + 1).value = t; bh.getCell(i + 1).style = head('FFFDE68A', 'FF7C2D12') })
               bh.height = 30
 
@@ -4663,11 +4664,12 @@ function MainContent({ params, setParams, onResult, isMobile = false, scrollCont
                 row.getCell(3).value = { formula: `B${r}*$G$${TOTR}-$B$29` } as ExcelJS.CellFormulaValue
                 row.getCell(4).value = { formula: `IF(C${r}>0,$B$30/C${r},"회수 불가")` } as ExcelJS.CellFormulaValue
                 row.getCell(5).value = { formula: `C${r}*$B$8-$B$30` } as ExcelJS.CellFormulaValue
-                row.getCell(6).value = { formula: `IF($B$${TOTR}>0,A${r}/($B$${TOTR}*24)*100,"")` } as ExcelJS.CellFormulaValue
+                row.getCell(6).value = { formula: `IF($B$30>0,E${r}/$B$30*100,"")` } as ExcelJS.CellFormulaValue
+                row.getCell(7).value = { formula: `IF($B$${TOTR}>0,A${r}/($B$${TOTR}*24)*100,"")` } as ExcelJS.CellFormulaValue
                 const isBase = Math.abs(f - 1) < 1e-9
-                // 2 월 충전량(kWh) · 3 월 순이익(원) · 4 BEP(개월) · 5 누적(원) · 6 이용률(%)
-                const bpFmts = [kwh1, won, '#,##0.0"개월"', won, pct1]
-                for (let c = 2; c <= 6; c++) {
+                // 2 월 충전량(kWh) · 3 월 순이익(원) · 4 BEP(개월) · 5 누적(원) · 6 최종 수익률(%) · 7 이용률(%)
+                const bpFmts = [kwh1, won, '#,##0.0"개월"', won, pct1, pct1]
+                for (let c = 2; c <= 7; c++) {
                   row.getCell(c).style = calcAs(bpFmts[c - 2], {
                     fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: isBase ? 'FFFFFBEB' : 'FFFFFFFF' } },
                     font: isBase ? { bold: true, color: { argb: 'FFB45309' } } : { color: { argb: 'FF111827' } },
@@ -4676,7 +4678,8 @@ function MainContent({ params, setParams, onResult, isMobile = false, scrollCont
                 row.height = 18
               })
               ws.getCell(`A${BP + 2 + factors.length}`).value =
-                '※ BEP 개월 = 초기투자 총액 ÷ 월 순이익.  월 순이익 = 월 충전량 × kWh당 마진 − 월 운영 고정비(초기투자 제외).'
+                '※ BEP 개월 = 초기투자 총액 ÷ 월 순이익.  월 순이익 = 월 충전량 × kWh당 마진 − 월 운영 고정비(초기투자 제외).  '
+                + '최종 수익률 = 운영기간 누적 순이익 ÷ 초기투자 총액.'
               ws.mergeCells(`A${BP + 2 + factors.length}:K${BP + 2 + factors.length}`)
               ws.getCell(`A${BP + 2 + factors.length}`).style = { font: { size: 9, color: { argb: 'FF9CA3AF' } }, alignment: { horizontal: 'left' } }
               ws.getCell(`A${BP + 3 + factors.length}`).value =
@@ -4819,7 +4822,7 @@ function MainContent({ params, setParams, onResult, isMobile = false, scrollCont
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                       <thead>
                         <tr style={{ background: '#f9fafb' }}>
-                          {['하루 충전량', '월 충전량', '월 순이익', 'BEP 도달', `${params.operation_months}개월 누적 순이익`, '이용률'].map(h => (
+                          {['하루 충전량', '월 충전량', '월 순이익', 'BEP 도달', `${params.operation_months}개월 누적 순이익`, '최종 수익률', '이용률'].map(h => (
                             <th key={h} style={{ padding: '10px 14px', textAlign: 'center', fontSize: 12, color: '#6b7280', fontWeight: 700, whiteSpace: 'nowrap', borderBottom: '2px solid #e5e7eb' }}>{h}</th>
                           ))}
                         </tr>
@@ -4833,10 +4836,12 @@ function MainContent({ params, setParams, onResult, isMobile = false, scrollCont
                             const netMonth = monthKwh * avgMarginPerKwh - monthlyOpexFixed
                             const bepM = netMonth > 0 ? totalInitCostAll / netMonth : Infinity
                             const cum = netMonth * params.operation_months - totalInitCostAll
+                            // 최종 수익률 — 앱의 ROI 와 같은 정의 (누적 손익 ÷ 초기투자)
+                            const roiPct = totalInitCostAll > 0 ? (cum / totalInitCostAll) * 100 : 0
                             const util = totalMaxKwhDay > 0 ? (day / totalMaxKwhDay) * 100 : 0
                             const isBase = Math.abs(f - 1) < 1e-9
                             const over = bepM !== Infinity && bepM <= params.operation_months
-                            return { day, monthKwh, netMonth, bepM, cum, util, isBase, over }
+                            return { day, monthKwh, netMonth, bepM, cum, roiPct, util, isBase, over }
                           })
                         })().map((r2, i) => (
                           <tr key={i} style={{ background: r2.isBase ? '#fffbeb' : i % 2 ? '#fafafa' : '#fff' }}>
@@ -4854,6 +4859,9 @@ function MainContent({ params, setParams, onResult, isMobile = false, scrollCont
                             </td>
                             <td style={{ padding: '9px 14px', textAlign: 'right', color: r2.cum >= 0 ? '#059669' : '#dc2626', borderBottom: '1px solid #f1f1f1' }}>
                               {r2.cum >= 0 ? '+' : ''}{Math.round(r2.cum).toLocaleString()}원
+                            </td>
+                            <td style={{ padding: '9px 14px', textAlign: 'right', fontWeight: 700, color: r2.roiPct >= 0 ? '#059669' : '#dc2626', borderBottom: '1px solid #f1f1f1' }}>
+                              {r2.roiPct >= 0 ? '+' : ''}{r2.roiPct.toFixed(1)}%
                             </td>
                             <td style={{ padding: '9px 14px', textAlign: 'center', color: '#6b7280', borderBottom: '1px solid #f1f1f1' }}>{r2.util.toFixed(1)}%</td>
                           </tr>
