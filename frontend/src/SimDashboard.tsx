@@ -4373,6 +4373,10 @@ function MainContent({ params, setParams, onResult, isMobile = false, scrollCont
             const totalBepKwhMonth = avgMarginPerKwh > 0 ? totalMonthlyFixed / avgMarginPerKwh : Infinity
             const totalBepKwhDay = totalBepKwhMonth / 30
             const totalMaxKwhDay = totalKw * 24
+            // BEP 개월 계산용 — 매달 나가는 고정비와 한 번 나가는 초기투자를 나눈다
+            const monthlyInitAmortAll = rows.reduce((s, r) => s + r.monthlyInitAmort, 0)
+            const monthlyOpexFixed = totalMonthlyFixed - monthlyInitAmortAll
+            const totalInitCostAll = monthlyInitAmortAll * params.operation_months
             const totalUtilization = totalMaxKwhDay > 0 ? (totalBepKwhDay / totalMaxKwhDay) * 100 : 0
 
             const cardStyle: React.CSSProperties = {
@@ -4524,16 +4528,39 @@ function MainContent({ params, setParams, onResult, isMobile = false, scrollCont
               ws.getRow(28).height = 17
 
               // ── 충전기별 표 ────────────────────────────────
-              const HDR = 31            // 헤더 행
+              const HDR = 33            // 헤더 행
               const R0 = HDR + 1        // 첫 데이터 행
-              band(30, '③ 충전기 유형별  (노란 칸: 구성 · 흰 칸: 계산)', 'FF4338CA')
+              const TOTR = R0 + N       // 합계 행 (아래 BEP 표에서도 쓴다)
+
+              // 매달 나가는 고정비 (초기투자 월할당 제외) — BEP 개월 계산용
+              ws.getCell('A29').value = '월 운영 고정비 (초기투자 제외)'
+              ws.getCell('A29').style = LBL
+              ws.getCell('B29').value = { formula:
+                `B27+B9*B${TOTR}*(1+B13/100)*(1+B14/100)` } as ExcelJS.CellFormulaValue
+              ws.getCell('B29').style = CALC
+              ws.getCell('B29').numFmt = won
+              ws.getCell('C29').value = '원/월  ← 월 고정비 합계 + 전기 기본료(기금·부가세 포함)'
+              ws.getCell('C29').style = { ...LBL, font: { size: 9, color: { argb: 'FF9CA3AF' } } }
+              ws.getRow(29).height = 17
+
+              ws.getCell('A30').value = '초기투자 총액'
+              ws.getCell('A30').style = LBL
+              ws.getCell('B30').value = { formula:
+                `SUMPRODUCT((E${R0}:E${R0 + N - 1}+F${R0}:F${R0 + N - 1}),C${R0}:C${R0 + N - 1})+B28` } as ExcelJS.CellFormulaValue
+              ws.getCell('B30').style = CALC
+              ws.getCell('B30').numFmt = won
+              ws.getCell('C30').value = '원  ← (충전기단가+설치비)×대수 + 공용 초기비용'
+              ws.getCell('C30').style = { ...LBL, font: { size: 9, color: { argb: 'FF9CA3AF' } } }
+              ws.getRow(30).height = 17
+
+              band(32, '③ 충전기 유형별  (노란 칸: 구성 · 흰 칸: 계산)', 'FF4338CA')
               const cols = ['충전기 유형', '용량(kW)', '대수', '충전단가\n(원/kWh)', '충전기 단가\n(원/대)', '설치비\n(원/대)',
                             'kWh당 마진\n(원)', '월 고정비\n(원)', '월 손익분기\n(kWh)', '일 손익분기\n(kWh)', '설비\n이용률']
               const hr = ws.getRow(HDR)
               cols.forEach((t, i) => { hr.getCell(i + 1).value = t; hr.getCell(i + 1).style = head('FFE0E7FF', 'FF1E1B4B') })
               hr.height = 32
 
-              const TOT = R0 + N        // 합계 행
+              const TOT = TOTR          // 합계 행
               // 대수 합계는 행마다 같은 범위를 봐야 하므로 절대참조로 고정한다
               const cntAbs = `$C$${R0}:$C$${R0 + N - 1}`
 
@@ -4610,8 +4637,49 @@ function MainContent({ params, setParams, onResult, isMobile = false, scrollCont
                 row.height = 18
               })
 
+              // ── 일 충전량별 BEP 달성 시점 ─────────────────
+              const BP = PT + 7
+              band(BP, '⑤ 일 충전량별 BEP 달성 시점  (노란 칸에 하루 충전량을 넣어 비교하세요)', 'FFB45309')
+              const bh = ws.getRow(BP + 1)
+              const bcols = ['일 충전량\n(kWh/일)', '월 충전량\n(kWh)', '월 순이익\n(원)',
+                             'BEP 도달\n(개월)', `${P.operation_months}개월 누적\n순이익(원)`, '설비\n이용률']
+              bcols.forEach((t, i) => { bh.getCell(i + 1).value = t; bh.getCell(i + 1).style = head('FFFDE68A', 'FF7C2D12') })
+              bh.height = 30
+
+              // 손익분기 일량을 기준으로 여러 배수를 미리 채워 둔다 (전부 수정 가능)
+              const baseDay = totalBepKwhDay === Infinity || !isFinite(totalBepKwhDay) ? 10 : totalBepKwhDay
+              const factors = [0.6, 0.8, 1.0, 1.2, 1.5, 2.0, 2.5, 3.0]
+              factors.forEach((f, i) => {
+                const r = BP + 2 + i
+                const row = ws.getRow(r)
+                row.getCell(1).value = Math.round(baseDay * f * 10) / 10
+                row.getCell(1).style = IN
+                row.getCell(1).numFmt = won1
+                row.getCell(2).value = { formula: `A${r}*30` } as ExcelJS.CellFormulaValue
+                row.getCell(3).value = { formula: `B${r}*$G$${TOTR}-$B$29` } as ExcelJS.CellFormulaValue
+                row.getCell(4).value = { formula: `IF(C${r}>0,$B$30/C${r},"회수 불가")` } as ExcelJS.CellFormulaValue
+                row.getCell(5).value = { formula: `C${r}*$B$8-$B$30` } as ExcelJS.CellFormulaValue
+                row.getCell(6).value = { formula: `IF($B$${TOTR}>0,A${r}/($B$${TOTR}*24)*100,"")` } as ExcelJS.CellFormulaValue
+                const isBase = Math.abs(f - 1) < 1e-9
+                for (let c = 2; c <= 6; c++) {
+                  row.getCell(c).style = { ...CALC,
+                    fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: isBase ? 'FFFFFBEB' : 'FFFFFFFF' } },
+                    font: isBase ? { bold: true, color: { argb: 'FFB45309' } } : { color: { argb: 'FF111827' } } }
+                  row.getCell(c).numFmt = c === 2 ? won1 : c === 4 ? '#,##0.0"개월"' : c === 6 ? pct1 : won
+                }
+                row.height = 18
+              })
+              ws.getCell(`A${BP + 2 + factors.length}`).value =
+                '※ BEP 개월 = 초기투자 총액 ÷ 월 순이익.  월 순이익 = 월 충전량 × kWh당 마진 − 월 운영 고정비(초기투자 제외).'
+              ws.mergeCells(`A${BP + 2 + factors.length}:K${BP + 2 + factors.length}`)
+              ws.getCell(`A${BP + 2 + factors.length}`).style = { font: { size: 9, color: { argb: 'FF9CA3AF' } }, alignment: { horizontal: 'left' } }
+              ws.getCell(`A${BP + 3 + factors.length}`).value =
+                '※ 차량 증가율·단가 인상률이 0%가 아니면 실제 BEP 는 이 표보다 빨라집니다 (화면 시뮬레이션은 증가율을 반영).'
+              ws.mergeCells(`A${BP + 3 + factors.length}:K${BP + 3 + factors.length}`)
+              ws.getCell(`A${BP + 3 + factors.length}`).style = { font: { size: 9, color: { argb: 'FF9CA3AF' } }, alignment: { horizontal: 'left' } }
+
               // ── 범례 ──────────────────────────────────────
-              const LG = PT + 7
+              const LG = BP + factors.length + 5
               ws.mergeCells(`A${LG}:K${LG}`)
               ws.getCell(`A${LG}`).value =
                 '■ 노란 칸 = 고칠 수 있는 값   ■ 흰 칸 = 수식 (자동 계산)   ' +
@@ -4732,6 +4800,67 @@ function MainContent({ params, setParams, onResult, isMobile = false, scrollCont
                     </div>
                   )
                 })()}
+
+                {/* 일 충전량별 BEP 달성 시점 */}
+                <div style={cardStyle}>
+                  <div style={secTitle}>일 충전량별 손익분기 도달 시점</div>
+                  <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 10, lineHeight: 1.6 }}>
+                    하루 충전량이 달라지면 초기투자를 언제 회수하는지 비교합니다.
+                    <b style={{ color: '#b45309' }}> 초기투자 {(totalInitCostAll / 10000).toFixed(0)}만원</b> ÷ 월 순이익 기준이며,
+                    월 순이익은 <b>월 충전량 × kWh당 마진 − 월 운영 고정비 {(monthlyOpexFixed / 10000).toFixed(1)}만원</b> 입니다.
+                  </div>
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                      <thead>
+                        <tr style={{ background: '#f9fafb' }}>
+                          {['하루 충전량', '월 충전량', '월 순이익', 'BEP 도달', `${params.operation_months}개월 누적 순이익`, '이용률'].map(h => (
+                            <th key={h} style={{ padding: '10px 14px', textAlign: 'center', fontSize: 12, color: '#6b7280', fontWeight: 700, whiteSpace: 'nowrap', borderBottom: '2px solid #e5e7eb' }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(() => {
+                          const baseDay = totalBepKwhDay === Infinity || !isFinite(totalBepKwhDay) ? 10 : totalBepKwhDay
+                          return [0.6, 0.8, 1.0, 1.2, 1.5, 2.0, 2.5, 3.0].map(f => {
+                            const day = Math.round(baseDay * f * 10) / 10
+                            const monthKwh = day * 30
+                            const netMonth = monthKwh * avgMarginPerKwh - monthlyOpexFixed
+                            const bepM = netMonth > 0 ? totalInitCostAll / netMonth : Infinity
+                            const cum = netMonth * params.operation_months - totalInitCostAll
+                            const util = totalMaxKwhDay > 0 ? (day / totalMaxKwhDay) * 100 : 0
+                            const isBase = Math.abs(f - 1) < 1e-9
+                            const over = bepM !== Infinity && bepM <= params.operation_months
+                            return { day, monthKwh, netMonth, bepM, cum, util, isBase, over }
+                          })
+                        })().map((r2, i) => (
+                          <tr key={i} style={{ background: r2.isBase ? '#fffbeb' : i % 2 ? '#fafafa' : '#fff' }}>
+                            <td style={{ padding: '9px 14px', textAlign: 'center', fontWeight: r2.isBase ? 800 : 600, color: r2.isBase ? '#b45309' : '#111827', borderBottom: '1px solid #f1f1f1' }}>
+                              {fmtKwh(r2.day)} kWh
+                              {r2.isBase && <span style={{ marginLeft: 6, fontSize: 10, color: '#b45309' }}>손익분기</span>}
+                            </td>
+                            <td style={{ padding: '9px 14px', textAlign: 'center', color: '#6b7280', borderBottom: '1px solid #f1f1f1' }}>{fmtKwh(r2.monthKwh)} kWh</td>
+                            <td style={{ padding: '9px 14px', textAlign: 'right', color: r2.netMonth > 0 ? '#111827' : '#dc2626', borderBottom: '1px solid #f1f1f1' }}>
+                              {r2.netMonth > 0 ? '+' : ''}{Math.round(r2.netMonth).toLocaleString()}원
+                            </td>
+                            <td style={{ padding: '9px 14px', textAlign: 'center', fontWeight: 700, color: r2.bepM === Infinity ? '#dc2626' : r2.over ? '#059669' : '#d97706', borderBottom: '1px solid #f1f1f1' }}>
+                              {r2.bepM === Infinity ? '회수 불가' : `${r2.bepM.toFixed(1)}개월`}
+                              {r2.bepM !== Infinity && !r2.over && <span style={{ marginLeft: 4, fontSize: 10 }}>(기간 초과)</span>}
+                            </td>
+                            <td style={{ padding: '9px 14px', textAlign: 'right', color: r2.cum >= 0 ? '#059669' : '#dc2626', borderBottom: '1px solid #f1f1f1' }}>
+                              {r2.cum >= 0 ? '+' : ''}{Math.round(r2.cum).toLocaleString()}원
+                            </td>
+                            <td style={{ padding: '9px 14px', textAlign: 'center', color: '#6b7280', borderBottom: '1px solid #f1f1f1' }}>{r2.util.toFixed(1)}%</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 8, lineHeight: 1.6 }}>
+                    차량 증가율·단가 인상률이 0%가 아니면 실제 도달 시점은 이 표보다 빨라집니다.
+                    상단 카드의 손익분기점은 증가율까지 반영한 값입니다.
+                    엑셀에서는 하루 충전량을 직접 넣어 비교할 수 있습니다.
+                  </div>
+                </div>
 
                 {/* 수익 목표별 필요 충전량 */}
                 <div style={cardStyle}>
